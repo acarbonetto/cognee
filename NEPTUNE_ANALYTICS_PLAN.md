@@ -40,7 +40,7 @@
 - delete_graph
 - get_edges
 
-### 7. Implement remaining required methods in Neptune Analytics Driver Module
+### 7. Implement the remaining required methods in Neptune Analytics Driver Module
 • Implement the following required methods for cognee/infrastructure/databases/graph/neptune_analytics_driver/ using the aws_langchain library:
 - get_graph_data
 - get_graph_metrics
