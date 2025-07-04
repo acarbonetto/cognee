@@ -120,19 +120,18 @@ async def main():
     nodes, edges = setup()
 
     print("------ADD NODES-------")
-    for node in nodes:
-        await na_adapter.add_node(node)
+    await na_adapter.add_nodes(nodes)
 
     print("------GET NODES FROM DATA-------")
-    for node in nodes:
-        result_node = await na_adapter.get_node(str(node.id))
-        print(result_node)
+    node_ids = [str(node.id) for node in nodes]
+    db_nodes = await na_adapter.get_nodes(node_ids)
+
+    print("------RESULTS:-------")
+    for n in db_nodes:
+        print(n)
 
     print("------ADD EDGES-------")
-    for edge in edges:
-        source_id, target_id, relationship_name = edge[0], edge[1], edge[2]
-        properties = edge[3] if len(edge) > 3 else {}
-        await na_adapter.add_edge(source_id, target_id, relationship_name, properties)
+    await na_adapter.add_edges(edges)
 
     print("------HAS EDGES-------")
     has_edge = await na_adapter.has_edge(
@@ -154,8 +153,8 @@ async def main():
     # await na_adapter.delete_graph()
 
     # delete all nodes by node id
-    for node in nodes:
-        await na_adapter.delete_node(str(node.id))
+    node_ids = [str(node.id) for node in nodes]
+    await na_adapter.delete_nodes(node_ids)
 
     has_edges = await na_adapter.has_edges(edges)
     if len(has_edges) == 0:
