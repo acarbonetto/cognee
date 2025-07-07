@@ -137,6 +137,7 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
             self._client.query(query_string, params)
         pass
 
+
     async def retrieve(self, collection_name: str, data_point_ids: list[str]):
         """
         Retrieve data points from a collection using their IDs.
