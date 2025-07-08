@@ -5,6 +5,7 @@ from cognee.infrastructure.databases.vector import get_vector_engine
 from cognee.infrastructure.databases.vector.neptune_analytics.NeptuneAnalyticsAdapter import NeptuneAnalyticsAdapter, \
     IndexSchema
 from cognee.shared.logging_utils import get_logger
+import os
 
 logger = get_logger()
 
@@ -28,8 +29,16 @@ async def main():
     assert isinstance(engine, NeptuneAnalyticsAdapter)
 
     TEST_COLLECTION_NAME = "test"
+    # Data point - 1
     TEST_UUID = "78a28770-2cd5-41f8-9b65-065a34f16aff"
     TEST_TEXT = "Hello world"
+    datapoint = IndexSchema(id=TEST_UUID, text=TEST_TEXT)
+    # Data point - 2
+    TEST_UUID_2 = "aaaa8770-1234-41f8-9b65-065a34f16aff"
+    TEST_TEXT_2 = "Cognee"
+    datapoint_2 = IndexSchema(id=TEST_UUID_2, text=TEST_TEXT_2)
+
+
 
     # Prun all vector_db entries
     await engine.prune()
@@ -38,17 +47,19 @@ async def main():
     await engine.has_collection(TEST_COLLECTION_NAME)
     await engine.create_collection(TEST_COLLECTION_NAME)
 
-    # Persist an node entry
-    datapoint = IndexSchema(id=TEST_UUID, text=TEST_TEXT)
-    await engine.create_data_points(TEST_COLLECTION_NAME, [datapoint])
+    # Save datapoints
+    await engine.create_data_points(TEST_COLLECTION_NAME, [datapoint, datapoint_2])
 
     # Retrieve its
-    result = await engine.retrieve(TEST_COLLECTION_NAME, [TEST_UUID])
+    result = await engine.retrieve(TEST_COLLECTION_NAME, [TEST_UUID, TEST_UUID_2])
     assert str(result[0].id) == TEST_UUID
     assert result[0].payload['~properties']['text'] == TEST_TEXT
 
+    assert str(result[1].id) == TEST_UUID_2
+    assert result[1].payload['~properties']['text'] == TEST_TEXT_2
+
     # Delete datapoint from vector store
-    await engine.delete_data_points(TEST_COLLECTION_NAME, [TEST_UUID])
+    await engine.delete_data_points(TEST_COLLECTION_NAME, [TEST_UUID, TEST_UUID_2])
 
     # Retrieve should return an empty list.
     result_deleted = await engine.retrieve(TEST_COLLECTION_NAME, [TEST_UUID])
