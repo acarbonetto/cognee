@@ -73,7 +73,7 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
             - collection_name (str): The name of the collection to check for existence.
         Returns:
         --------
-            - bool: Alwats return True.
+            - bool: Always return True.
         """
         return True
 
