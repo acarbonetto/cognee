@@ -39,7 +39,6 @@ async def main():
     datapoint_2 = IndexSchema(id=TEST_UUID_2, text=TEST_TEXT_2)
 
 
-
     # Prun all vector_db entries
     await engine.prune()
 
