@@ -138,19 +138,21 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
             - data_points (List[DataPoint]): A list of data points to be added to the
               collection.
         """
-        for data_point in data_points:
+
+        # Fetch embeddings
+        texts = [DataPoint.get_embeddable_data(t) for t in data_points]
+        data_vectors = (await self.embedding_engine.embed_text(texts))
+
+        for index, data_point in enumerate(data_points):
             node_id = data_point.id
-            # Generate embedding
+            # Fetch embedding from list instead
             text_content = DataPoint.get_embeddable_data(data_point)
-            data_vectors = (await self.embedding_engine.embed_text([text_content]))[0]
+            data_vector = data_vectors[index]
+            # data_vectors = (await self.embedding_engine.embed_text([text_content]))[0]
 
             # Fetch properties
             properties = get_own_properties(data_point)
-
-            params = {
-                "node_id": node_id,
-                "properties": properties
-            }
+            params = dict(node_id = node_id, properties = properties)
 
             # Composite the query and send
             query_string = (
@@ -160,7 +162,7 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
                     f"{{`~id`: $node_id}}) "
                     f"SET n = $properties "
                     f"WITH n "
-                    f"CALL neptune.algo.vectors.upsert('{node_id}', {data_vectors}) "
+                    f"CALL neptune.algo.vectors.upsert('{node_id}', {data_vector}) "
                     f"YIELD success "
                     f"RETURN success ")
             self._client.query(query_string, params)
