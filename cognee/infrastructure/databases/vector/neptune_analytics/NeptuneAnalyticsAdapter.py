@@ -1,13 +1,35 @@
 from typing import List, Optional
-
+from langchain_aws import NeptuneAnalyticsGraph, NeptuneGraph
 from cognee.infrastructure.engine import DataPoint
+from cognee.modules.storage.utils import get_own_properties
 from ..embeddings.EmbeddingEngine import EmbeddingEngine
 from ..models.PayloadSchema import PayloadSchema
+from ..models.ScoredResult import ScoredResult
 from ..vector_db_interface import VectorDBInterface
+
+class IndexSchema(DataPoint):
+    """
+    Represents a schema for an index data point containing an ID and text.
+
+    Attributes:
+
+    - id: A string representing the unique identifier for the data point.
+    - text: A string representing the content of the data point.
+    - metadata: A dictionary with default index fields for the schema, currently configured
+    to include 'text'.
+    """
+
+    id: str
+    text: str
+
+    metadata: dict = {"index_fields": ["text"]}
 
 
 class NeptuneAnalyticsAdapter(VectorDBInterface):
     name = "Neptune Analytics"
+
+    VECTOR_NODE_IDENTIFIER = "COGNEE_VECTOR_NODE"
+    COLLECTION_PREFIX = "VECTOR_COLLECTION_"
 
     def __init__(self,
                  graph_id: Optional[str],
@@ -36,42 +58,37 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_session_token = aws_session_token
+        self._client = NeptuneAnalyticsGraph(graph_id)
 
-        # TODO: Initialize Neptune Analytics client using aws_langchain
-        # This will be implemented in subsequent tasks
-        self._client = None
+    """ Collection related """
 
     async def has_collection(self, collection_name: str) -> bool:
         """
-        Check if a specified collection exists.
+        The concept of collection doesn't directly apply to Neptune Analytics,
+        as the result, has_collection( ) will always return True, to imply that the given collection name
+        is available.
 
         Parameters:
         -----------
-
             - collection_name (str): The name of the collection to check for existence.
-
         Returns:
         --------
-
-            - bool: True if the collection exists, otherwise False.
+            - bool: Always return True.
         """
-        pass
+        return True
 
     async def create_collection(
         self,
         collection_name: str,
         payload_schema: Optional[PayloadSchema] = None,
-            region: Optional[str] = None,
-            aws_access_key_id: Optional[str] = None,
-            aws_secret_access_key: Optional[str] = None,
-            aws_session_token: Optional[str] = None,
     ):
         """
-        Create a new collection with an optional payload schema.
+Neptune Analytics stores vector on a node level, so create_collection() implements interface for compliance but performs no operations when called.```
+        as the result, create_collection( ) will be no-op.
+        is available.
 
         Parameters:
         -----------
-
             - collection_name (str): The name of the new collection to create.
             - payload_schema (Optional[PayloadSchema]): An optional schema for the payloads
               within this collection. (default None)
@@ -82,15 +99,41 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
 
     async def create_data_points(self, collection_name: str, data_points: List[DataPoint]):
         """
-        Insert new data points into the specified collection.
+        Insert new data points into the specified collection, by first inserting the node itself on the graph,
+        then execute neptune.algo.vectors.upsert() to insert the corresponded embedding.
 
         Parameters:
         -----------
-
             - collection_name (str): The name of the collection where data points will be added.
             - data_points (List[DataPoint]): A list of data points to be added to the
               collection.
         """
+        # Fetch embeddings
+        texts = [DataPoint.get_embeddable_data(t) for t in data_points]
+        data_vectors = (await self.embedding_engine.embed_text(texts))
+
+        for index, data_point in enumerate(data_points):
+            node_id = data_point.id
+            # Fetch embedding from list instead
+            data_vector = data_vectors[index]
+
+            # Fetch properties
+            properties = get_own_properties(data_point)
+            properties['namespace'] = self.VECTOR_NODE_IDENTIFIER
+            params = dict(node_id = node_id, properties = properties,
+                          embedding = data_vector)
+
+            # Composite the query and send
+            query_string = (
+                    f"MERGE (n"
+                    f":{self.COLLECTION_PREFIX}{collection_name} "
+                    f"{{`~id`: $node_id}}) "
+                    f"SET n = $properties "
+                    f"WITH n, $embedding AS embedding "
+                    f"CALL neptune.algo.vectors.upsert(n, embedding) "
+                    f"YIELD success "
+                    f"RETURN success ")
+            self._client.query(query_string, params)
         pass
 
     async def retrieve(self, collection_name: str, data_point_ids: list[str]):
@@ -99,12 +142,20 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
 
         Parameters:
         -----------
-
             - collection_name (str): The name of the collection from which to retrieve data
               points.
             - data_point_ids (list[str]): A list of IDs of the data points to retrieve.
         """
-        pass
+        # Do the fetch for each node
+        params = dict(node_ids=data_point_ids)
+        query_string = (f"MATCH( n "
+                        f":{self.COLLECTION_PREFIX}{collection_name}) "
+                        f"WHERE id(n) in $node_ids "
+                        f"RETURN id(n) as id , n as payload ")
+        result = self._client.query(query_string, params)
+
+        result_set = [ScoredResult(**item, score=0) for item in result]
+        return result_set
 
     """ Search """
 
@@ -153,19 +204,29 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
 
     async def delete_data_points(self, collection_name: str, data_point_ids: list[str]):
         """
-        Delete specified data points from a collection.
+        Delete specified data points from a collection, by executing an OpenCypher query,
+        with matching [vector_label, collection_label, node_id] combination.
 
         Parameters:
         -----------
-
             - collection_name (str): The name of the collection from which to delete data
               points.
             - data_point_ids (list[str]): A list of IDs of the data points to delete.
         """
+        params = dict(node_ids=data_point_ids)
+        query_string = (f"MATCH (n"
+                        f":{self.COLLECTION_PREFIX}{collection_name}) "
+                        f"WHERE id(n) IN $node_ids "
+                        f"DETACH DELETE n")
+        self._client.query(query_string, params)
         pass
 
     async def prune(self):
         """
         Remove obsolete or unnecessary data from the database.
         """
+        # Run actual truncate
+        self._client.query(f"MATCH (n) "
+                           f"WHERE n.namespace='{self.VECTOR_NODE_IDENTIFIER}'"
+                           f"DETACH DELETE n")
         pass
