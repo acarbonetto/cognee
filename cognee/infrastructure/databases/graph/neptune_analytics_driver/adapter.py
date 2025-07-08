@@ -174,7 +174,7 @@ class NeptuneAnalyticsAdapter(GraphDBInterface):
             # The langchain_aws NeptuneAnalyticsGraph supports openCypher queries
             if params is None:
                 params = {}
-            logger.debug(f"executing na query:\nquery={query}\nparams={params}\n")
+            logger.warning(f"executing na query:\nquery={query}\nparams={params}\n")
             result = self._client.query(query, params)
             
             # Convert the result to list format expected by the interface
