@@ -83,7 +83,7 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         payload_schema: Optional[PayloadSchema] = None,
     ):
         """
-        The concept of collection doesn't directly apply to Neptune Analytics,
+Neptune Analytics stores vector on a node level, so create_collection() implements interface for compliance but performs no operations when called.```
         as the result, create_collection( ) will be no-op.
         is available.
 
