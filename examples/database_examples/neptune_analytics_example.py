@@ -3,7 +3,7 @@ import pathlib
 import asyncio
 import cognee
 from cognee.modules.search.types import SearchType
-from cognee.infrastructure.databases.vector import get_vector_engine
+
 
 async def main():
     """
