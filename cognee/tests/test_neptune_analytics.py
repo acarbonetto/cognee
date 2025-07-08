@@ -22,7 +22,8 @@ async def main():
         get_vector_engine()
 
     # Return a valid engine object with valid URL.
-    cognee.config.set_vector_db_url("neptune-graph://g-3eu7qmuf9a")
+    graph_id = os.getenv('GRAPH_ID', "")
+    cognee.config.set_vector_db_url(f"neptune-graph://{graph_id}")
     engine = get_vector_engine()
     assert isinstance(engine, NeptuneAnalyticsAdapter)
 
