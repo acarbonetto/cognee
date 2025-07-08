@@ -78,7 +78,6 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
             - bool: True if the collection exists, otherwise False.
         """
         query_string = (f"MATCH (n"
-                        f":{self.VECTOR_NODE_IDENTIFIER} "
                         f":{self.COLLECTION_PREFIX}{collection_name}) "
                         f"RETURN COUNT(n) > 0 as collection_exist LIMIT 1")
         result = self._client.query(query_string)
@@ -121,7 +120,6 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         """
         params = dict(node_ids=data_point_ids)
         query_string = (f"MATCH (n"
-                        f":{self.VECTOR_NODE_IDENTIFIER} "
                         f":{self.COLLECTION_PREFIX}{collection_name}) "
                         f"WHERE id(n) IN $node_ids "
                         f"DETACH DELETE n")
@@ -151,12 +149,12 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
 
             # Fetch properties
             properties = get_own_properties(data_point)
+            properties['namespace'] = self.VECTOR_NODE_IDENTIFIER
             params = dict(node_id = node_id, properties = properties)
 
             # Composite the query and send
             query_string = (
                     f"MERGE (n"
-                    f":{self.VECTOR_NODE_IDENTIFIER} "
                     f":{self.COLLECTION_PREFIX}{collection_name} "
                     f"{{`~id`: $node_id}}) "
                     f"SET n = $properties "
@@ -181,7 +179,6 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         # Do the fetch for each node
         params = dict(node_ids=data_point_ids)
         query_string = (f"MATCH( n "
-                        f":{self.VECTOR_NODE_IDENTIFIER} "
                         f":{self.COLLECTION_PREFIX}{collection_name}) "
                         f"WHERE id(n) in $node_ids "
                         f"RETURN id(n) as id , n as payload ")
@@ -198,7 +195,9 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         Remove obsolete or unnecessary data from the database.
         """
         # Run actual truncate
-        self._client.query(f"MATCH (n:{self.VECTOR_NODE_IDENTIFIER}) DETACH DELETE n")
+        self._client.query(f"MATCH (n) "
+                           f"WHERE n.namespace='{self.VECTOR_NODE_IDENTIFIER}'"
+                           f"DETACH DELETE n")
         pass
 
 
