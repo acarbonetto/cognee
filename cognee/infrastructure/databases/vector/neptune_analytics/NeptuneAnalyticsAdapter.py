@@ -115,13 +115,13 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
         for index, data_point in enumerate(data_points):
             node_id = data_point.id
             # Fetch embedding from list instead
-            text_content = DataPoint.get_embeddable_data(data_point)
             data_vector = data_vectors[index]
 
             # Fetch properties
             properties = get_own_properties(data_point)
             properties['namespace'] = self.VECTOR_NODE_IDENTIFIER
-            params = dict(node_id = node_id, properties = properties)
+            params = dict(node_id = node_id, properties = properties,
+                          embedding = data_vector)
 
             # Composite the query and send
             query_string = (
@@ -129,9 +129,8 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
                     f":{self.COLLECTION_PREFIX}{collection_name} "
                     f"{{`~id`: $node_id}}) "
                     f"SET n = $properties "
-                    f"WITH n "
-                    # params is not unsupported under CALL clause.
-                    f"CALL neptune.algo.vectors.upsert('{node_id}', {data_vector}) "
+                    f"WITH n, $embedding AS embedding "
+                    f"CALL neptune.algo.vectors.upsert(n, embedding) "
                     f"YIELD success "
                     f"RETURN success ")
             self._client.query(query_string, params)
