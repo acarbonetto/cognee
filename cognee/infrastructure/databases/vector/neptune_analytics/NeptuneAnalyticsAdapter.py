@@ -119,12 +119,13 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
               points.
             - data_point_ids (list[str]): A list of IDs of the data points to delete.
         """
+        params = dict(node_ids=data_point_ids)
         query_string = (f"MATCH (n"
                         f":{self.VECTOR_NODE_IDENTIFIER} "
                         f":{self.COLLECTION_PREFIX}{collection_name}) "
-                        f"WHERE id(n) IN {data_point_ids} "
+                        f"WHERE id(n) IN $node_ids "
                         f"DETACH DELETE n")
-        self._client.query(query_string)
+        self._client.query(query_string, params)
         pass
 
     async def create_data_points(self, collection_name: str, data_points: List[DataPoint]):
@@ -138,7 +139,6 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
             - data_points (List[DataPoint]): A list of data points to be added to the
               collection.
         """
-
         # Fetch embeddings
         texts = [DataPoint.get_embeddable_data(t) for t in data_points]
         data_vectors = (await self.embedding_engine.embed_text(texts))
@@ -148,7 +148,6 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
             # Fetch embedding from list instead
             text_content = DataPoint.get_embeddable_data(data_point)
             data_vector = data_vectors[index]
-            # data_vectors = (await self.embedding_engine.embed_text([text_content]))[0]
 
             # Fetch properties
             properties = get_own_properties(data_point)
@@ -162,6 +161,7 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
                     f"{{`~id`: $node_id}}) "
                     f"SET n = $properties "
                     f"WITH n "
+                    # params is not unsupported under CALL clause.
                     f"CALL neptune.algo.vectors.upsert('{node_id}', {data_vector}) "
                     f"YIELD success "
                     f"RETURN success ")
@@ -183,12 +183,13 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         # Do the fetch for each node
         for node_id in data_point_ids:
             # Composite query
+            params = dict(node_id=node_id)
             query_string = (f"MATCH( n "
                             f":{self.VECTOR_NODE_IDENTIFIER} "
                             f":{self.COLLECTION_PREFIX}{collection_name} "
-                            f"{{`~id`: '{node_id}'}}) "
+                            f"{{`~id`: $node_id}}) "
                             f"RETURN id(n) as id , n as payload ")
-            result = self._client.query(query_string)
+            result = self._client.query(query_string, params)
             if len(result) == 1:
                 result_set.append(
                     ScoredResult(
