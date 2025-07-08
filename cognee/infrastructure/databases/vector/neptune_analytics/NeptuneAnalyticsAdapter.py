@@ -178,25 +178,16 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
               points.
             - data_point_ids (list[str]): A list of IDs of the data points to retrieve.
         """
-        result_set = []
-
         # Do the fetch for each node
-        for node_id in data_point_ids:
-            # Composite query
-            params = dict(node_id=node_id)
-            query_string = (f"MATCH( n "
-                            f":{self.VECTOR_NODE_IDENTIFIER} "
-                            f":{self.COLLECTION_PREFIX}{collection_name} "
-                            f"{{`~id`: $node_id}}) "
-                            f"RETURN id(n) as id , n as payload ")
-            result = self._client.query(query_string, params)
-            if len(result) == 1:
-                result_set.append(
-                    ScoredResult(
-                        id=result[0]["id"],
-                        payload=result[0]["payload"],
-                        score=0,
-                ))
+        params = dict(node_ids=data_point_ids)
+        query_string = (f"MATCH( n "
+                        f":{self.VECTOR_NODE_IDENTIFIER} "
+                        f":{self.COLLECTION_PREFIX}{collection_name}) "
+                        f"WHERE id(n) in $node_ids "
+                        f"RETURN id(n) as id , n as payload ")
+        result = self._client.query(query_string, params)
+
+        result_set = [ScoredResult(**item, score=0) for item in result]
         return result_set
 
 
