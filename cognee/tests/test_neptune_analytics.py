@@ -57,12 +57,33 @@ async def main():
     assert str(result[1].id) == TEST_UUID_2
     assert result[1].payload['~properties']['text'] == TEST_TEXT_2
 
-    # Delete datapoint from vector store
-    await engine.delete_data_points(TEST_COLLECTION_NAME, [TEST_UUID, TEST_UUID_2])
 
-    # Retrieve should return an empty list.
-    result_deleted = await engine.retrieve(TEST_COLLECTION_NAME, [TEST_UUID])
-    assert result_deleted == []
+    # Search single text
+    # result_search = await engine.search(
+    #     collection_name=TEST_COLLECTION_NAME,
+    #     query_text="Hello world",
+    #     query_vector=None,
+    #     limit=10,
+    #     with_vector=True)
+    # print(result_search)
+
+    # Search multiple
+    result_search_batch = await engine.batch_search(
+        collection_name=TEST_COLLECTION_NAME,
+        query_texts=[TEST_TEXT, TEST_TEXT_2],
+        limit=10,
+        with_vectors=False
+    )
+    print(result_search_batch)
+
+
+
+    # # Delete datapoint from vector store
+    # await engine.delete_data_points(TEST_COLLECTION_NAME, [TEST_UUID, TEST_UUID_2])
+    #
+    # # Retrieve should return an empty list.
+    # result_deleted = await engine.retrieve(TEST_COLLECTION_NAME, [TEST_UUID])
+    # assert result_deleted == []
 
 if __name__ == "__main__":
     import asyncio

@@ -184,11 +184,33 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
               results. (default False)
         """
 
-        # Basic validation to make sure either text || vector provided
-        # Convert text to embedding if necessary
-        # Do the vector search
+        if (query_vector and query_text):
+            # Abort
+            pass
 
-        pass
+        if query_vector:
+            embedding = query_vector
+        elif query_text:
+            # Convert text to token
+            data_vectors = (await self.embedding_engine.embed_text([query_text]))
+            embedding = data_vectors[0]
+
+        params = dict(embedding=embedding)
+        # Composite the query
+        query_string = f"""
+            WITH $embedding AS text_vectors
+            CALL neptune.algo.vectors.topKByEmbedding(
+                  text_vectors, {{
+                    topK: {limit}
+                  }}
+                )
+            YIELD embedding, node, score
+            RETURN id(node) as id, node as payload, score as score, embedding as vector
+        """
+        # Print the result
+        result = self._client.query(query_string, params)
+        result_set = [ScoredResult(**item) for item in result]
+        return result_set
 
     async def batch_search(
         self, collection_name: str, query_texts: List[str], limit: int, with_vectors: bool = False
@@ -205,7 +227,13 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
             - with_vectors (bool): Whether to include vector representations with search
               results. (default False)
         """
-        pass
+        return [await self.search(
+            collection_name=collection_name,
+            query_text=query_text,
+            query_vector=None,
+            limit=limit,
+            with_vector=with_vectors)
+        for query_text in query_texts]
 
     async def delete_data_points(self, collection_name: str, data_point_ids: list[str]):
         """
