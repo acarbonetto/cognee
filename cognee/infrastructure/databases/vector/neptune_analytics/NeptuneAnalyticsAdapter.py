@@ -182,6 +182,12 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
             - limit (int): The maximum number of results to return from the search.
             - with_vector (bool): Whether to return the vector representations with search
               results. (default False)
+
+        Returns:
+        --------
+
+            A list of scored results that match the query; may include vector data if requested.
+
         """
 
         if (query_vector and query_text):
@@ -226,6 +232,12 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
             - limit (int): The maximum number of results to return for each query.
             - with_vectors (bool): Whether to include vector representations with search
               results. (default False)
+
+
+        Returns:
+        --------
+
+            A list of search result sets, one for each query input.
         """
         return [await self.search(
             collection_name=collection_name,
