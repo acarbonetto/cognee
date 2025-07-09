@@ -183,6 +183,11 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
             - with_vector (bool): Whether to return the vector representations with search
               results. (default False)
         """
+
+        # Basic validation to make sure either text || vector provided
+        # Convert text to embedding if necessary
+        # Do the vector search
+
         pass
 
     async def batch_search(
