@@ -48,7 +48,7 @@ async def main():
     # No-op
     await engine.create_collection(TEST_COLLECTION_NAME)
 
-    # Save datapoints
+    # Save data-points
     await engine.create_data_points(TEST_COLLECTION_NAME, [datapoint, datapoint_2])
 
     # Retrieve data-points
