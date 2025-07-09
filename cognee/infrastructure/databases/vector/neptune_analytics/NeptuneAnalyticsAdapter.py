@@ -1,5 +1,7 @@
 from typing import List, Optional
 from langchain_aws import NeptuneAnalyticsGraph, NeptuneGraph
+
+from cognee.exceptions import InvalidValueError
 from cognee.infrastructure.engine import DataPoint
 from cognee.modules.storage.utils import get_own_properties
 from ..embeddings.EmbeddingEngine import EmbeddingEngine
@@ -189,15 +191,15 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
             A list of scored results that match the query; may include vector data if requested.
 
         """
-
-        if (query_vector and query_text):
-            # Abort
-            pass
-
-        if query_vector:
+        if query_vector and query_text:
+            raise InvalidValueError(
+                message="The search function accepts either text or embedding as input, but not both."
+            )
+        elif query_text is None and query_vector is None:
+            raise InvalidValueError(message="One of query_text or query_vector must be provided!")
+        elif query_vector:
             embedding = query_vector
-        elif query_text:
-            # Convert text to token
+        else:
             data_vectors = (await self.embedding_engine.embed_text([query_text]))
             embedding = data_vectors[0]
 
