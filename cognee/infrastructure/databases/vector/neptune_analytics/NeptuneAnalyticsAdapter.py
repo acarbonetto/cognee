@@ -241,13 +241,39 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
 
             A list of search result sets, one for each query input.
         """
-        return [await self.search(
-            collection_name=collection_name,
-            query_text=query_text,
-            query_vector=None,
-            limit=limit,
-            with_vector=with_vectors)
-        for query_text in query_texts]
+
+        # Convert text to embedding array
+        data_vectors = (await self.embedding_engine.embed_text(query_texts))
+        # Composite the param Map
+        params = dict(embeddings=data_vectors)
+
+        # Composite the query_string
+        query_string = f"""
+        WITH $embeddings AS embeddings_list
+        UNWIND range(0, size(embeddings_list) - 1) AS idx
+        WITH idx, embeddings_list[idx] AS text_vectors
+        CALL neptune.algo.vectors.topKByEmbedding(
+          text_vectors, {{ topK: {limit} }}
+        )
+        YIELD embedding, node, score
+        WITH idx, collect({{id: id(node), score: score, payload: node, vector: embedding}}) AS result_group
+        ORDER BY idx
+        RETURN result_group AS result
+        """
+
+        # Send out the query
+        response = self._client.query(query_string, params)
+
+        # Convert the result
+        score_result_list = []
+
+        for item in response:
+            result = item.get('result')
+            result_set = [ScoredResult(**item) for item in result]
+            score_result_list.append(result_set)
+        return score_result_list
+
+
 
     async def delete_data_points(self, collection_name: str, data_point_ids: list[str]):
         """
