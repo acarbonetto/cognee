@@ -156,7 +156,11 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
                         f"RETURN id(n) as id , n as payload ")
         result = self._client.query(query_string, params)
 
-        result_set = [ScoredResult(**item, score=0) for item in result]
+        result_set = [ScoredResult(
+            id=item.get('payload').get('~id'),
+            payload=item.get('payload').get('~properties'),
+            score=0
+        ) for item in result]
         return result_set
 
     """ Search """
@@ -218,7 +222,11 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
         """
         # Print the result
         query_response = self._client.query(query_string, params)
-        return [ScoredResult(**item) for item in query_response]
+        return [ScoredResult(
+            id=item.get('payload').get('~id'),
+            payload=item.get('payload').get('~properties'),
+            score=item.get('score')
+        ) for item in query_response]
 
     async def batch_search(
         self, collection_name: str, query_texts: List[str], limit: int, with_vectors: bool = False
@@ -269,7 +277,11 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
         for result_row in query_response:
             result_row_list = result_row.get('result')
             # Convert each response into a list of ScoredResult with hits.
-            result_set = [ScoredResult(**item) for item in result_row_list]
+            result_set = [ScoredResult(
+                id=item.get('payload').get('~id'),
+                payload=item.get('payload').get('~properties'),
+                score=item.get('score')
+            ) for item in result_row_list]
             score_result_list.append(result_set)
         return score_result_list
 
