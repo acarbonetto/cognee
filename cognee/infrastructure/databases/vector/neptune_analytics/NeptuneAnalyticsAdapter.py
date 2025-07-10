@@ -122,6 +122,7 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
             # Fetch properties
             properties = get_own_properties(data_point)
             properties['namespace'] = self.VECTOR_NODE_IDENTIFIER
+            properties[self.COLLECTION_PREFIX] = collection_name
             params = dict(node_id = node_id, properties = properties,
                           embedding = data_vector)
 
@@ -149,10 +150,11 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
             - data_point_ids (list[str]): A list of IDs of the data points to retrieve.
         """
         # Do the fetch for each node
-        params = dict(node_ids=data_point_ids)
+        params = dict(node_ids=data_point_ids, collection_name=collection_name)
         query_string = (f"MATCH( n "
                         f":{self.COLLECTION_PREFIX}{collection_name}) "
-                        f"WHERE id(n) in $node_ids "
+                        f"WHERE id(n) in $node_ids AND "
+                        f"n.{self.COLLECTION_PREFIX} = $collection_name "
                         f"RETURN id(n) as id , n as payload ")
         result = self._client.query(query_string, params)
 
