@@ -1,6 +1,0 @@
-PGVector is an extension for PostgreSQL that adds vector similarity search capabilities.
-    It supports multiple indexing methods, including IVFFlat, HNSW, and brute-force search.
-    PGVector allows you to store vector embeddings directly in your PostgreSQL database.
-    It provides distance functions like L2 distance, inner product, and cosine distance.
-    Using PGVector, you can perform both metadata filtering and vector similarity search in a single query.
-    The extension is often used for applications like semantic search, recommendations, and image similarity.
