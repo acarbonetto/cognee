@@ -203,7 +203,7 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
             data_vectors = (await self.embedding_engine.embed_text([query_text]))
             embedding = data_vectors[0]
 
-        # Composite the parmeters map
+        # Composite the parameters map
         params = dict(embedding=embedding)
         # Composite the query
         query_string = f"""
