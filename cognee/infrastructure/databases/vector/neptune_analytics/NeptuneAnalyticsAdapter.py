@@ -203,6 +203,7 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
             data_vectors = (await self.embedding_engine.embed_text([query_text]))
             embedding = data_vectors[0]
 
+        # Composite the parmeters map
         params = dict(embedding=embedding)
         # Composite the query
         query_string = f"""
@@ -216,9 +217,8 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
             RETURN id(node) as id, node as payload, score as score, embedding as vector
         """
         # Print the result
-        result = self._client.query(query_string, params)
-        result_set = [ScoredResult(**item) for item in result]
-        return result_set
+        query_response = self._client.query(query_string, params)
+        return [ScoredResult(**item) for item in query_response]
 
     async def batch_search(
         self, collection_name: str, query_texts: List[str], limit: int, with_vectors: bool = False
@@ -262,14 +262,14 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
         """
 
         # Send out the query
-        response = self._client.query(query_string, params)
+        query_response = self._client.query(query_string, params)
 
         # Convert the result
         score_result_list = []
-
-        for item in response:
-            result = item.get('result')
-            result_set = [ScoredResult(**item) for item in result]
+        for result_row in query_response:
+            result_row_list = result_row.get('result')
+            # Convert each response into a list of ScoredResult with hits.
+            result_set = [ScoredResult(**item) for item in result_row_list]
             score_result_list.append(result_set)
         return score_result_list
 
