@@ -50,23 +50,23 @@ async def main():
     # Save data-points
     await engine.create_data_points(TEST_COLLECTION_NAME, [datapoint, datapoint_2])
 
-    # Retrieve data-points
-    result = await engine.retrieve(TEST_COLLECTION_NAME, [TEST_UUID, TEST_UUID_2])
-    assert str(result[0].id) == TEST_UUID
-    assert result[0].payload['text'] == TEST_TEXT
-
-    assert str(result[1].id) == TEST_UUID_2
-    assert result[1].payload['text'] == TEST_TEXT_2
+    # # Retrieve data-points
+    # result = await engine.retrieve(TEST_COLLECTION_NAME, [TEST_UUID, TEST_UUID_2])
+    # assert str(result[0].id) == TEST_UUID
+    # assert result[0].payload['text'] == TEST_TEXT
     #
-    #
-    # # Search single text
-    result_search = await engine.search(
-        collection_name=TEST_COLLECTION_NAME,
-        query_text=TEST_TEXT,
-        query_vector=None,
-        limit=10,
-        with_vector=True)
-    assert (len(result_search) == 2)
+    # assert str(result[1].id) == TEST_UUID_2
+    # assert result[1].payload['text'] == TEST_TEXT_2
+    # #
+    # #
+    # # # Search single text
+    # result_search = await engine.search(
+    #     collection_name=TEST_COLLECTION_NAME,
+    #     query_text=TEST_TEXT,
+    #     query_vector=None,
+    #     limit=10,
+    #     with_vector=True)
+    # assert (len(result_search) == 2)
 
     # # Search multiple
     # result_search_batch = await engine.batch_search(

@@ -121,16 +121,15 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
 
             # Fetch properties
             properties = get_own_properties(data_point)
-            properties['namespace'] = self.VECTOR_NODE_IDENTIFIER
             properties[self.COLLECTION_PREFIX] = collection_name
             params = dict(node_id = node_id, properties = properties,
-                          embedding = data_vector)
+                          embedding = data_vector, collection_name = collection_name)
 
             # Composite the query and send
             query_string = (
                     f"MERGE (n "
                     f":{self.VECTOR_NODE_IDENTIFIER} "
-                    f" {{`~id`: $node_id}}) "
+                    f" {{{self.COLLECTION_PREFIX}: $collection_name, `~id`: $node_id}}) "
                     f"SET n = $properties "
                     f"WITH n, $embedding AS embedding "
                     f"CALL neptune.algo.vectors.upsert(n, embedding) "
