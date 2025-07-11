@@ -174,7 +174,7 @@ class NeptuneAnalyticsAdapter(GraphDBInterface):
             # The langchain_aws NeptuneAnalyticsGraph supports openCypher queries
             if params is None:
                 params = {}
-            logger.warning(f"executing na query:\nquery={query}\nparams={params}\n")
+            logger.debug(f"executing na query:\nquery={query}\n")
             result = self._client.query(query, params)
             
             # Convert the result to list format expected by the interface
@@ -847,7 +847,7 @@ class NeptuneAnalyticsAdapter(GraphDBInterface):
         try:
             # Query to get all connections (both incoming and outgoing)
             query = f"""
-            MATCH (source:{self._GRAPH_NODE_LABEL})-[r]-(target:{self._GRAPH_NODE_LABEL})
+            MATCH (source:{self._GRAPH_NODE_LABEL})-[r]->(target:{self._GRAPH_NODE_LABEL})
             WHERE id(source) = $node_id OR id(target) = $node_id
             RETURN 
                 id(source) AS source_id,
@@ -863,35 +863,25 @@ class NeptuneAnalyticsAdapter(GraphDBInterface):
             
             connections = []
             for record in result:
-                # Determine which node is the current node and which is the connected node
-                if record["source_id"] == node_id:
-                    # Outgoing connection: current -> connected
-                    current_node = {
-                        "id": record["source_id"],
-                        **record["source_props"]
-                    }
-                    connected_node = {
-                        "id": record["target_id"],
-                        **record["target_props"]
-                    }
-                else:
-                    # Incoming connection: connected -> current
-                    current_node = {
-                        "id": record["target_id"],
-                        **record["target_props"]
-                    }
-                    connected_node = {
-                        "id": record["source_id"],
-                        **record["source_props"]
-                    }
-                
                 relationship_details = {
                     "relationship_name": record["relationship_name"],
                     **record["relationship_props"]
                 }
                 
-                # Return as (current_node, relationship, connected_node)
-                connections.append((current_node, relationship_details, connected_node))
+                # Return as (source_node, relationship, target_node)
+                connections.append(
+                    (
+                        {
+                            "id": record["source_id"],
+                            **record["source_props"]
+                        },
+                        relationship_details,
+                        {
+                            "id": record["target_id"],
+                            **record["target_props"]
+                        }
+                    )
+                )
             
             logger.debug(f"Retrieved {len(connections)} connections for node: {node_id}")
             return connections
