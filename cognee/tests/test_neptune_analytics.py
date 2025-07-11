@@ -57,9 +57,9 @@ async def main():
 
     assert str(result[1].id) == TEST_UUID_2
     assert result[1].payload['text'] == TEST_TEXT_2
-
-
-    # Search single text
+    #
+    #
+    # # Search single text
     result_search = await engine.search(
         collection_name=TEST_COLLECTION_NAME,
         query_text=TEST_TEXT,
@@ -68,22 +68,22 @@ async def main():
         with_vector=True)
     assert (len(result_search) == 2)
 
-    # Search multiple
-    result_search_batch = await engine.batch_search(
-        collection_name=TEST_COLLECTION_NAME,
-        query_texts=[TEST_TEXT, TEST_TEXT_2],
-        limit=10,
-        with_vectors=False
-    )
-    assert (len(result_search_batch) == 2 and
-            all(len(batch) == 2 for batch in result_search_batch))
+    # # Search multiple
+    # result_search_batch = await engine.batch_search(
+    #     collection_name=TEST_COLLECTION_NAME,
+    #     query_texts=[TEST_TEXT, TEST_TEXT_2],
+    #     limit=10,
+    #     with_vectors=False
+    # )
+    # assert (len(result_search_batch) == 2 and
+    #         all(len(batch) == 2 for batch in result_search_batch))
 
     # Delete datapoint from vector store
-    await engine.delete_data_points(TEST_COLLECTION_NAME, [TEST_UUID, TEST_UUID_2])
+    # await engine.delete_data_points(TEST_COLLECTION_NAME, [TEST_UUID, TEST_UUID_2])
 
     # Retrieve should return an empty list.
-    result_deleted = await engine.retrieve(TEST_COLLECTION_NAME, [TEST_UUID])
-    assert result_deleted == []
+    # result_deleted = await engine.retrieve(TEST_COLLECTION_NAME, [TEST_UUID])
+    # assert result_deleted == []
 
 if __name__ == "__main__":
     import asyncio

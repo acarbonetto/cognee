@@ -31,7 +31,7 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
     name = "Neptune Analytics"
 
     VECTOR_NODE_IDENTIFIER = "COGNEE_VECTOR_NODE"
-    COLLECTION_PREFIX = "VECTOR_COLLECTION_"
+    COLLECTION_PREFIX = "VECTOR_COLLECTION"
 
     def __init__(self,
                  graph_id: Optional[str],
@@ -128,9 +128,9 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
 
             # Composite the query and send
             query_string = (
-                    f"MERGE (n"
-                    f":{self.COLLECTION_PREFIX}{collection_name} "
-                    f"{{`~id`: $node_id}}) "
+                    f"MERGE (n "
+                    f":{self.VECTOR_NODE_IDENTIFIER} "
+                    f" {{`~id`: $node_id}}) "
                     f"SET n = $properties "
                     f"WITH n, $embedding AS embedding "
                     f"CALL neptune.algo.vectors.upsert(n, embedding) "
@@ -151,8 +151,7 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
         """
         # Do the fetch for each node
         params = dict(node_ids=data_point_ids, collection_name=collection_name)
-        query_string = (f"MATCH( n "
-                        f":{self.COLLECTION_PREFIX}{collection_name}) "
+        query_string = (f"MATCH( n ) "
                         f"WHERE id(n) in $node_ids AND "
                         f"n.{self.COLLECTION_PREFIX} = $collection_name "
                         f"RETURN id(n) as id , n as payload ")
@@ -213,14 +212,14 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
         params = dict(embedding=embedding)
         # Composite the query
         query_string = f"""
-            WITH $embedding AS text_vectors
-            CALL neptune.algo.vectors.topKByEmbedding(
-                  text_vectors, {{
-                    topK: {limit}
-                  }}
-                )
-            YIELD embedding, node, score
-            RETURN id(node) as id, node as payload, score as score, embedding as vector
+        CALL neptune.algo.vectors.topKByEmbeddingWithFiltering({{
+                topK: {limit},
+                embedding: {embedding}, 
+                nodeFilter: {{ equals: {{property: '{self.COLLECTION_PREFIX}', value: '{collection_name}'}} }}
+              }}
+            )
+        YIELD node, score
+        RETURN id(node) as id, node as payload, score as score
         """
         # Print the result
         query_response = self._client.query(query_string, params)
