@@ -1,5 +1,7 @@
 from typing import List, Optional
 from langchain_aws import NeptuneAnalyticsGraph, NeptuneGraph
+
+from cognee.exceptions import InvalidValueError
 from cognee.infrastructure.engine import DataPoint
 from cognee.modules.storage.utils import get_own_properties
 from ..embeddings.EmbeddingEngine import EmbeddingEngine
@@ -29,7 +31,7 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
     name = "Neptune Analytics"
 
     VECTOR_NODE_IDENTIFIER = "COGNEE_VECTOR_NODE"
-    COLLECTION_PREFIX = "VECTOR_COLLECTION_"
+    COLLECTION_PREFIX = "VECTOR_COLLECTION"
 
     def __init__(self,
                  graph_id: Optional[str],
@@ -119,15 +121,15 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
 
             # Fetch properties
             properties = get_own_properties(data_point)
-            properties['namespace'] = self.VECTOR_NODE_IDENTIFIER
+            properties[self.COLLECTION_PREFIX] = collection_name
             params = dict(node_id = node_id, properties = properties,
-                          embedding = data_vector)
+                          embedding = data_vector, collection_name = collection_name)
 
             # Composite the query and send
             query_string = (
-                    f"MERGE (n"
-                    f":{self.COLLECTION_PREFIX}{collection_name} "
-                    f"{{`~id`: $node_id}}) "
+                    f"MERGE (n "
+                    f":{self.VECTOR_NODE_IDENTIFIER} "
+                    f" {{{self.COLLECTION_PREFIX}: $collection_name, `~id`: $node_id}}) "
                     f"SET n = $properties "
                     f"WITH n, $embedding AS embedding "
                     f"CALL neptune.algo.vectors.upsert(n, embedding) "
@@ -147,14 +149,18 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
             - data_point_ids (list[str]): A list of IDs of the data points to retrieve.
         """
         # Do the fetch for each node
-        params = dict(node_ids=data_point_ids)
-        query_string = (f"MATCH( n "
-                        f":{self.COLLECTION_PREFIX}{collection_name}) "
-                        f"WHERE id(n) in $node_ids "
+        params = dict(node_ids=data_point_ids, collection_name=collection_name)
+        query_string = (f"MATCH( n :{self.VECTOR_NODE_IDENTIFIER}) "
+                        f"WHERE id(n) in $node_ids AND "
+                        f"n.{self.COLLECTION_PREFIX} = $collection_name "
                         f"RETURN id(n) as id , n as payload ")
         result = self._client.query(query_string, params)
 
-        result_set = [ScoredResult(**item, score=0) for item in result]
+        result_set = [ScoredResult(
+            id=item.get('payload').get('~id'),
+            payload=item.get('payload').get('~properties'),
+            score=0
+        ) for item in result]
         return result_set
 
     """ Search """
@@ -182,8 +188,45 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
             - limit (int): The maximum number of results to return from the search.
             - with_vector (bool): Whether to return the vector representations with search
               results. (default False)
+
+        Returns:
+        --------
+
+            A list of scored results that match the query; may include vector data if requested.
+
         """
-        pass
+        if query_vector and query_text:
+            raise InvalidValueError(
+                message="The search function accepts either text or embedding as input, but not both."
+            )
+        elif query_text is None and query_vector is None:
+            raise InvalidValueError(message="One of query_text or query_vector must be provided!")
+        elif query_vector:
+            embedding = query_vector
+        else:
+            data_vectors = (await self.embedding_engine.embed_text([query_text]))
+            embedding = data_vectors[0]
+
+        # Composite the parameters map
+        params = dict(embedding=embedding)
+        # Composite the query
+        query_string = f"""
+        CALL neptune.algo.vectors.topKByEmbeddingWithFiltering({{
+                topK: {limit},
+                embedding: {embedding}, 
+                nodeFilter: {{ equals: {{property: '{self.COLLECTION_PREFIX}', value: '{collection_name}'}} }}
+              }}
+            )
+        YIELD node, score
+        RETURN id(node) as id, node as payload, score as score
+        """
+        # Print the result
+        query_response = self._client.query(query_string, params)
+        return [ScoredResult(
+            id=item.get('payload').get('~id'),
+            payload=item.get('payload').get('~properties'),
+            score=item.get('score')
+        ) for item in query_response]
 
     async def batch_search(
         self, collection_name: str, query_texts: List[str], limit: int, with_vectors: bool = False
@@ -199,8 +242,50 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
             - limit (int): The maximum number of results to return for each query.
             - with_vectors (bool): Whether to include vector representations with search
               results. (default False)
+
+
+        Returns:
+        --------
+
+            A list of search result sets, one for each query input.
         """
-        pass
+
+        # Convert text to embedding array
+        data_vectors = (await self.embedding_engine.embed_text(query_texts))
+        # Composite the param Map
+        params = dict(embeddings=data_vectors)
+
+        # Composite the query_string
+        query_string = f"""
+        WITH $embeddings AS embeddings_list
+        UNWIND range(0, size(embeddings_list) - 1) AS idx
+        WITH idx, embeddings_list[idx] AS text_vectors
+        CALL neptune.algo.vectors.topKByEmbedding(
+          text_vectors, {{ topK: {limit} }}
+        )
+        YIELD embedding, node, score
+        WITH idx, collect({{id: id(node), score: score, payload: node, vector: embedding}}) AS result_group
+        ORDER BY idx
+        RETURN result_group AS result
+        """
+
+        # Send out the query
+        query_response = self._client.query(query_string, params)
+
+        # Convert the result
+        score_result_list = []
+        for result_row in query_response:
+            result_row_list = result_row.get('result')
+            # Convert each response into a list of ScoredResult with hits.
+            result_set = [ScoredResult(
+                id=item.get('payload').get('~id'),
+                payload=item.get('payload').get('~properties'),
+                score=item.get('score')
+            ) for item in result_row_list]
+            score_result_list.append(result_set)
+        return score_result_list
+
+
 
     async def delete_data_points(self, collection_name: str, data_point_ids: list[str]):
         """
@@ -213,10 +298,10 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
               points.
             - data_point_ids (list[str]): A list of IDs of the data points to delete.
         """
-        params = dict(node_ids=data_point_ids)
-        query_string = (f"MATCH (n"
-                        f":{self.COLLECTION_PREFIX}{collection_name}) "
+        params = dict(node_ids=data_point_ids, collection_name=collection_name)
+        query_string = (f"MATCH (n :{self.VECTOR_NODE_IDENTIFIER}) "
                         f"WHERE id(n) IN $node_ids "
+                        f"AND n.{self.COLLECTION_PREFIX} = $collection_name "
                         f"DETACH DELETE n")
         self._client.query(query_string, params)
         pass
