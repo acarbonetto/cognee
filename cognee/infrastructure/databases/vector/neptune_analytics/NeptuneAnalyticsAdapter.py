@@ -298,10 +298,10 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
               points.
             - data_point_ids (list[str]): A list of IDs of the data points to delete.
         """
-        params = dict(node_ids=data_point_ids)
-        query_string = (f"MATCH (n"
-                        f":{self.COLLECTION_PREFIX}{collection_name}) "
+        params = dict(node_ids=data_point_ids, collection_name=collection_name)
+        query_string = (f"MATCH (n :{self.VECTOR_NODE_IDENTIFIER}) "
                         f"WHERE id(n) IN $node_ids "
+                        f"AND n.{self.COLLECTION_PREFIX} = $collection_name "
                         f"DETACH DELETE n")
         self._client.query(query_string, params)
         pass

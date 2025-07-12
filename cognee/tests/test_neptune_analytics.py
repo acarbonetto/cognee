@@ -79,11 +79,11 @@ async def main():
     #         all(len(batch) == 2 for batch in result_search_batch))
 
     # Delete datapoint from vector store
-    # await engine.delete_data_points(TEST_COLLECTION_NAME, [TEST_UUID, TEST_UUID_2])
+    await engine.delete_data_points(TEST_COLLECTION_NAME, [TEST_UUID, TEST_UUID_2])
 
     # Retrieve should return an empty list.
-    # result_deleted = await engine.retrieve(TEST_COLLECTION_NAME, [TEST_UUID])
-    # assert result_deleted == []
+    result_deleted = await engine.retrieve(TEST_COLLECTION_NAME, [TEST_UUID])
+    assert result_deleted == []
 
 if __name__ == "__main__":
     import asyncio
