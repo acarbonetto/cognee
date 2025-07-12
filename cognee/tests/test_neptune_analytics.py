@@ -51,12 +51,12 @@ async def main():
     await engine.create_data_points(TEST_COLLECTION_NAME, [datapoint, datapoint_2])
 
     # # Retrieve data-points
-    # result = await engine.retrieve(TEST_COLLECTION_NAME, [TEST_UUID, TEST_UUID_2])
-    # assert str(result[0].id) == TEST_UUID
-    # assert result[0].payload['text'] == TEST_TEXT
-    #
-    # assert str(result[1].id) == TEST_UUID_2
-    # assert result[1].payload['text'] == TEST_TEXT_2
+    result = await engine.retrieve(TEST_COLLECTION_NAME, [TEST_UUID, TEST_UUID_2])
+    assert str(result[0].id) == TEST_UUID
+    assert result[0].payload['text'] == TEST_TEXT
+
+    assert str(result[1].id) == TEST_UUID_2
+    assert result[1].payload['text'] == TEST_TEXT_2
     # #
     # #
     # # # Search single text
