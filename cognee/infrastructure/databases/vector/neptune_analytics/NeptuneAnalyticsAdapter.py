@@ -66,9 +66,8 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
 
     async def has_collection(self, collection_name: str) -> bool:
         """
-        The concept of collection doesn't directly apply to Neptune Analytics,
-        as the result, has_collection( ) will always return True, to imply that the given collection name
-        is available.
+        Neptune Analytics stores vector on a node level,
+        so create_collection() implements interface for compliance but performs no operations when called.
 
         Parameters:
         -----------
