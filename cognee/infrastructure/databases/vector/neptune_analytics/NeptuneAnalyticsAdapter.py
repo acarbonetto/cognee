@@ -124,7 +124,7 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
             params = dict(node_id = node_id, properties = properties,
                           embedding = data_vector, collection_name = collection_name)
 
-            # Composite the query and send
+            # Compose the query and send
             query_string = (
                     f"MERGE (n "
                     f":{self.VECTOR_NODE_IDENTIFIER} "
@@ -156,7 +156,7 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
         result = self._client.query(query_string, params)
 
         result_set = [ScoredResult(
-            id=item.get('payload').get('~id'),
+            id=item.get('id'),
             payload=item.get('payload').get('~properties'),
             score=0
         ) for item in result]
@@ -244,7 +244,6 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
         Remove obsolete or unnecessary data from the database.
         """
         # Run actual truncate
-        self._client.query(f"MATCH (n) "
-                           f"WHERE n.namespace='{self.VECTOR_NODE_IDENTIFIER}'"
+        self._client.query(f"MATCH (n :{self.VECTOR_NODE_IDENTIFIER}) "
                            f"DETACH DELETE n")
         pass

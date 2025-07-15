@@ -1,3 +1,4 @@
+import uuid
 
 import pytest
 
@@ -31,11 +32,11 @@ async def main():
 
     TEST_COLLECTION_NAME = "test"
     # Data point - 1
-    TEST_UUID = "78a28770-2cd5-41f8-9b65-065a34f16aff"
+    TEST_UUID = str(uuid.uuid4())
     TEST_TEXT = "Hello world"
     datapoint = IndexSchema(id=TEST_UUID, text=TEST_TEXT)
     # Data point - 2
-    TEST_UUID_2 = "aaaa8770-1234-41f8-9b65-065a34f16aff"
+    TEST_UUID_2 = str(uuid.uuid4())
     TEST_TEXT_2 = "Cognee"
     datapoint_2 = IndexSchema(id=TEST_UUID_2, text=TEST_TEXT_2)
 
@@ -53,11 +54,14 @@ async def main():
 
     # # Retrieve data-points
     result = await engine.retrieve(TEST_COLLECTION_NAME, [TEST_UUID, TEST_UUID_2])
-    assert str(result[0].id) == TEST_UUID
-    assert result[0].payload['text'] == TEST_TEXT
-
-    assert str(result[1].id) == TEST_UUID_2
-    assert result[1].payload['text'] == TEST_TEXT_2
+    assert any(
+        str(r.id) == TEST_UUID and r.payload['text'] == TEST_TEXT
+        for r in result
+    )
+    assert any(
+        str(r.id) == TEST_UUID_2 and r.payload['text'] == TEST_TEXT_2
+        for r in result
+    )
 
     # Delete datapoint from vector store
     await engine.delete_data_points(TEST_COLLECTION_NAME, [TEST_UUID, TEST_UUID_2])
