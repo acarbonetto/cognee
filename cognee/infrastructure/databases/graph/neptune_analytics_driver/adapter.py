@@ -183,6 +183,30 @@ class NeptuneAnalyticsAdapter(GraphDBInterface):
             logger.error(f"Neptune Analytics query failed: {error_msg}")
             raise Exception(f"Query execution failed: {error_msg}")
 
+    async def has_node(self, node_id: str) -> bool:
+        """
+        Check if a node with the specified ID exists in the database.
+
+        Parameters:
+        -----------
+
+            - node_id (str): The ID of the node to check for existence.
+
+        Returns:
+        --------
+
+            - bool: True if the node exists, otherwise False.
+        """
+        results = self.query(
+            """
+                MATCH (n)
+                WHERE id(n) = $node_id
+                RETURN COUNT(n) > 0 AS node_exists
+            """,
+            {"node_id": node_id},
+        )
+        return results[0]["node_exists"] if len(results) > 0 else False
+
     async def add_node(self, node: DataPoint) -> None:
         """
         Add a single node with specified properties to the graph.
@@ -375,8 +399,8 @@ class NeptuneAnalyticsAdapter(GraphDBInterface):
 
     async def add_edge(
         self,
-        source_id: str,
-        target_id: str,
+        source_id: UUID,
+        target_id: UUID,
         relationship_name: str,
         properties: Optional[Dict[str, Any]] = None,
     ) -> None:
@@ -410,12 +434,12 @@ class NeptuneAnalyticsAdapter(GraphDBInterface):
             """
 
             params = {
-                "source_id": source_id,
-                "target_id": target_id,
+                "source_id": str(source_id),
+                "target_id": str(target_id),
                 "properties": serialized_properties,
             }
             await self.query(query, params)
-            logger.debug(f"Successfully added edge: {source_id} -[{relationship_name}]-> {target_id}")
+            logger.debug(f"Successfully added edge: {str(source_id)} -[{relationship_name}]-> {str(target_id)}")
             
         except Exception as e:
             error_msg = format_neptune_error(e)
@@ -436,7 +460,7 @@ class NeptuneAnalyticsAdapter(GraphDBInterface):
 
         for edge in edges:
             (node_from, node_to, relationship, *props) = edge
-            await self.add_edge(str(node_from), str(node_to), relationship, props[0] if props else {})
+            await self.add_edge(node_from, node_to, relationship, props[0] if props else {})
 
     async def delete_graph(self) -> None:
         """
@@ -527,7 +551,7 @@ class NeptuneAnalyticsAdapter(GraphDBInterface):
         logger.warning("Neptune Analytics get_graph_metrics method not yet implemented")
         return {}
 
-    async def has_edge(self, source_id: str, target_id: str, relationship_name: str) -> bool:
+    async def has_edge(self, source_id: UUID, target_id: UUID, relationship_name: str) -> bool:
         """
         Verify if an edge exists between two specified nodes.
 
@@ -550,8 +574,8 @@ class NeptuneAnalyticsAdapter(GraphDBInterface):
             """
 
             params = {
-                "source_id": source_id,
-                "target_id": target_id,
+                "source_id": str(source_id),
+                "target_id": str(target_id),
             }
             
             result = await self.query(query, params)
@@ -637,6 +661,54 @@ class NeptuneAnalyticsAdapter(GraphDBInterface):
             error_msg = format_neptune_error(e)
             logger.error(f"Failed to get edges for node {node_id}: {error_msg}")
             raise Exception(f"Failed to get edges: {error_msg}")
+
+    async def get_disconnected_nodes(self) -> list[str]:
+        """
+        Find and return nodes that are not connected to any other nodes in the graph.
+
+        Returns:
+        --------
+
+            - list[str]: A list of IDs of disconnected nodes.
+        """
+        # TODO: Implement get_disconnected_nodes
+        logger.warning("Neptune Analytics get_disconnected_nodes method not yet implemented")
+
+    async def get_predecessors(self, node_id: str, edge_label: str = None) -> list[str]:
+        """
+        Retrieve the predecessor nodes of a specified node based on an optional edge label.
+
+        Parameters:
+        -----------
+
+            - node_id (str): The ID of the node whose predecessors are to be retrieved.
+            - edge_label (str): Optional edge label to filter predecessors. (default None)
+
+        Returns:
+        --------
+
+            - list[str]: A list of predecessor node IDs.
+        """
+        # TODO: Implement get_predecessors
+        logger.warning(f"Neptune Analytics get_predecessors method for node_id {node_id} not yet implemented")
+
+    async def get_successors(self, node_id: str, edge_label: str = None) -> list[str]:
+        """
+        Retrieve the successor nodes of a specified node based on an optional edge label.
+
+        Parameters:
+        -----------
+
+            - node_id (str): The ID of the node whose successors are to be retrieved.
+            - edge_label (str): Optional edge label to filter successors. (default None)
+
+        Returns:
+        --------
+
+            - list[str]: A list of successor node IDs.
+        """
+        # TODO: Implement get_successors
+        logger.warning(f"Neptune Analytics get_successors method for node_id {node_id} not yet implemented")
 
     async def get_neighbors(self, node_id: str) -> List[NodeData]:
         """
@@ -814,6 +886,73 @@ class NeptuneAnalyticsAdapter(GraphDBInterface):
             error_msg = format_neptune_error(e)
             logger.error(f"Failed to get connections for node {node_id}: {error_msg}")
             raise Exception(f"Failed to get connections: {error_msg}")
+
+    async def remove_connection_to_predecessors_of(
+            self, node_ids: list[str], edge_label: str
+    ) -> None:
+        """
+        Remove connections (edges) to all predecessors of specified nodes based on edge label.
+
+        Parameters:
+        -----------
+
+            - node_ids (list[str]): A list of IDs of nodes from which connections are to be
+              removed.
+            - edge_label (str): The label of the edges to remove.
+
+        Returns:
+        --------
+
+            - None: None
+        """
+        # TODO: Implement remove_connection_to_predecessors_of
+        logger.warning(f"Neptune Analytics remove_connection_to_predecessors_of method for {len(node_ids)} nodes not yet implemented")
+
+    async def remove_connection_to_successors_of(
+            self, node_ids: list[str], edge_label: str
+    ) -> None:
+        """
+        Remove connections (edges) to all successors of specified nodes based on edge label.
+
+        Parameters:
+        -----------
+
+            - node_ids (list[str]): A list of IDs of nodes from which connections are to be
+              removed.
+            - edge_label (str): The label of the edges to remove.
+
+        Returns:
+        --------
+
+            - None: None
+        """
+        # TODO: Implement remove_connection_to_successors_of
+        logger.warning(f"Neptune Analytics remove_connection_to_successors_of method for {len(node_ids)} nodes not yet implemented")
+
+
+    async def get_model_independent_graph_data(self):
+        """
+        Retrieve the basic graph data without considering the model specifics, returning nodes
+        and edges.
+
+        Returns:
+        --------
+
+            A tuple of nodes and edges data.
+        """
+
+    async def get_model_independent_graph_data(self):
+        """
+        Retrieve the basic graph data without considering the model specifics, returning nodes
+        and edges.
+
+        Returns:
+        --------
+
+            A tuple of nodes and edges data.
+        """
+        # TODO: Implement remove_connection_to_successors_of
+        logger.warning(f"Neptune Analytics remove_connection_to_successors_of method for {len(node_ids)} nodes not yet implemented")
 
     @staticmethod
     def _convert_relationship_to_edge(relationship: dict) -> EdgeData:
