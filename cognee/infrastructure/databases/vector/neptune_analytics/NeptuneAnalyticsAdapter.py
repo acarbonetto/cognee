@@ -219,14 +219,30 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
               }}
             )
         YIELD node, score
+        """
+
+        if with_vector:
+            query_string += """
+        WITH node, score, id(node) as node_id 
+        MATCH (n)
+        WHERE id(n) = id(node)
+        CALL neptune.algo.vectors.get(n)
+        YIELD embedding
+        RETURN node as payload, score, embedding
+        """
+
+        else:
+            query_string += """
         RETURN node as payload, score
         """
+
         # Print the result
         query_response = self._client.query(query_string, params)
         return [ScoredResult(
             id=item.get('payload').get('~id'),
             payload=item.get('payload').get('~properties'),
-            score=item.get('score')
+            score=item.get('score'),
+            vector=item.get('embedding') if with_vector else None
         ) for item in query_response]
 
     async def batch_search(
