@@ -1,3 +1,4 @@
+import asyncio
 from typing import List, Optional
 from langchain_aws import NeptuneAnalyticsGraph, NeptuneGraph
 
@@ -153,11 +154,11 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
         query_string = (f"MATCH( n :{self.VECTOR_NODE_IDENTIFIER}) "
                         f"WHERE id(n) in $node_ids AND "
                         f"n.{self.COLLECTION_PREFIX} = $collection_name "
-                        f"RETURN id(n) as id , n as payload ")
+                        f"RETURN n as payload ")
         result = self._client.query(query_string, params)
 
         result_set = [ScoredResult(
-            id=item.get('id'),
+            id=item.get('payload').get('~id'),
             payload=item.get('payload').get('~properties'),
             score=0
         ) for item in result]
@@ -207,9 +208,9 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
             data_vectors = (await self.embedding_engine.embed_text([query_text]))
             embedding = data_vectors[0]
 
-        # Composite the parameters map
+        # Compose the parameters map
         params = dict(embedding=embedding, param_topk=limit)
-        # Composite the query
+        # Compose the query
         query_string = f"""
         CALL neptune.algo.vectors.topKByEmbeddingWithFiltering({{
                 topK: {limit},
@@ -218,12 +219,12 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
               }}
             )
         YIELD node, score
-        RETURN id(node) as id, node as payload, score as score
+        RETURN node as payload, score
         """
         # Print the result
         query_response = self._client.query(query_string, params)
         return [ScoredResult(
-            id=item.get('id'),
+            id=item.get('payload').get('~id'),
             payload=item.get('payload').get('~properties'),
             score=item.get('score')
         ) for item in query_response]
@@ -252,9 +253,10 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
 
         # Convert text to embedding array in batch
         data_vectors = (await self.embedding_engine.embed_text(query_texts))
-        return [await self.search(collection_name, None, vector, limit, with_vectors)
-                for vector in data_vectors]
-
+        return await asyncio.gather(*[
+            self.search(collection_name, None, vector, limit, with_vectors)
+            for vector in data_vectors
+        ])
 
 
     async def delete_data_points(self, collection_name: str, data_point_ids: list[str]):
