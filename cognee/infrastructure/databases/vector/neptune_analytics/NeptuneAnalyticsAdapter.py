@@ -246,7 +246,6 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
         RETURN node as payload, score
         """
 
-        # Print the result
         query_response = self._client.query(query_string, params)
         return [ScoredResult(
             id=item.get('payload').get('~id'),
