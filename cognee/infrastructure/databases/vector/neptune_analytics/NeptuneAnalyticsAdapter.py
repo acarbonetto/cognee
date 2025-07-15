@@ -5,10 +5,13 @@ from langchain_aws import NeptuneAnalyticsGraph, NeptuneGraph
 from cognee.exceptions import InvalidValueError
 from cognee.infrastructure.engine import DataPoint
 from cognee.modules.storage.utils import get_own_properties
+from cognee.shared.logging_utils import get_logger
 from ..embeddings.EmbeddingEngine import EmbeddingEngine
 from ..models.PayloadSchema import PayloadSchema
 from ..models.ScoredResult import ScoredResult
 from ..vector_db_interface import VectorDBInterface
+
+logger = get_logger("NeptuneAnalyticsDBAdapter")
 
 class IndexSchema(DataPoint):
     """
@@ -196,6 +199,13 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
             A list of scored results that match the query.
 
         """
+        if with_vector:
+            logger.warning(
+                "with_vector=True will include embedding vectors in the result. "
+                "This may trigger a resource-intensive query and increase response time. "
+                "Use this option only when vector data is required."
+            )
+
         if query_vector and query_text:
             raise InvalidValueError(
                 message="The search function accepts either text or embedding as input, but not both."
