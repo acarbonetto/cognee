@@ -235,7 +235,7 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
             embedding = data_vectors[0]
 
         # Compose the parameters map
-        params = dict(embedding=embedding, param_topk=0)
+        params = dict(embedding=embedding, param_topk=limit)
         # Compose the query
         query_string = f"""
         CALL neptune.algo.vectors.topKByEmbeddingWithFiltering({{
