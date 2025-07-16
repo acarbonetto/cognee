@@ -82,8 +82,6 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         """
         return await self.embedding_engine.embed_text(data)
 
-    """ Collection related """
-
     async def has_collection(self, collection_name: str) -> bool:
         """
         Neptune Analytics stores vector on a node level,
@@ -106,7 +104,6 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         """
         Neptune Analytics stores vector on a node level, so create_collection() implements interface for compliance but performs no operations when called.```
         as the result, create_collection( ) will be no-op.
-        is available.
 
         Parameters:
         -----------
@@ -116,25 +113,6 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         """
         pass
 
-    async def create_vector_index(self, index_name: str, index_property_name: str):
-        await self.create_collection(f"{index_name}_{index_property_name}")
-
-
-    async def index_data_points(
-            self, index_name: str, index_property_name: str, data_points: list[DataPoint]
-    ):
-        await self.create_data_points(
-            f"{index_name}_{index_property_name}",
-            [
-                IndexSchema(
-                    id=str(data_point.id),
-                    text=getattr(data_point, data_point.metadata["index_fields"][0]),
-                )
-                for data_point in data_points
-            ],
-        )
-
-    """ Data points """
 
     async def create_data_points(self, collection_name: str, data_points: List[DataPoint]):
         """
@@ -167,14 +145,13 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
                     f"MERGE (n "
                     f":{self.VECTOR_NODE_IDENTIFIER} "
                     f" {{{self.COLLECTION_PREFIX}: $collection_name, `~id`: $node_id}}) "
-                    f"SET n = $properties "
+                    f"SET n += $properties "
                     f"WITH n, $embedding AS embedding "
                     f"CALL neptune.algo.vectors.upsert(n, embedding) "
                     f"YIELD success "
                     f"RETURN success ")
             self._client.query(query_string, params)
         pass
-
 
     async def retrieve(self, collection_name: str, data_point_ids: list[str]):
         """
@@ -201,7 +178,6 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         ) for item in result]
         return result_set
 
-    """ Search """
 
     async def search(
         self,
@@ -320,7 +296,6 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
             for vector in data_vectors
         ])
 
-
     async def delete_data_points(self, collection_name: str, data_point_ids: list[str]):
         """
         Delete specified data points from a collection, by executing an OpenCypher query,
@@ -339,6 +314,43 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
                         f"DETACH DELETE n")
         self._client.query(query_string, params)
         pass
+
+    async def create_vector_index(self, index_name: str, index_property_name: str):
+        """
+        Neptune Analytics stores vectors at the node level,
+        so create_vector_index() implements the interface for compliance but performs no operation when called.
+        As a result, create_vector_index() invokes create_collection(), which is also a no-op.
+        This ensures the logic flow remains consistent, even if the concept of collections is introduced in a future release.
+        """
+        await self.create_collection(f"{index_name}_{index_property_name}")
+
+    async def index_data_points(
+            self, index_name: str, index_property_name: str, data_points: list[DataPoint]
+    ):
+        """
+        Indexes a list of data points into Neptune Analytics by creating them as nodes.
+
+        This method constructs a unique collection name by combining the `index_name` and
+        `index_property_name`, then delegates to `create_data_points()` to store the data.
+
+        Args:
+            index_name (str): The base name of the index.
+            index_property_name (str): The property name to append to the index name for uniqueness.
+            data_points (list[DataPoint]): A list of `DataPoint` instances to be indexed.
+
+        Returns:
+            None
+        """
+        await self.create_data_points(
+            f"{index_name}_{index_property_name}",
+            [
+                IndexSchema(
+                    id=str(data_point.id),
+                    text=getattr(data_point, data_point.metadata["index_fields"][0]),
+                )
+                for data_point in data_points
+            ],
+        )
 
     async def prune(self):
         """
