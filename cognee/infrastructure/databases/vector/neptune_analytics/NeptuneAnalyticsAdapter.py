@@ -220,6 +220,10 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
 
         # In the case of excessive limit, or zero / negative value, limit will be set to 10.
         if not limit or limit < 0 or limit > 10:
+            logger.warning(
+                "Provided limit (%s) is invalid (zero, negative, or exceeds maximum). "
+                "Defaulting to limit=10.", limit
+            )
             limit = 10
 
         if query_vector and query_text:
