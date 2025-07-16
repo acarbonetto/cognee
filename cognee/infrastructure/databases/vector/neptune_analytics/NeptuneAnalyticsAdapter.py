@@ -150,7 +150,11 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
                     f"CALL neptune.algo.vectors.upsert(n, embedding) "
                     f"YIELD success "
                     f"RETURN success ")
-            self._client.query(query_string, params)
+
+            try:
+                self._client.query(query_string, params)
+            except Exception as e:
+                self._na_exception_handler(e, query_string)
         pass
 
     async def retrieve(self, collection_name: str, data_point_ids: list[str]):
@@ -169,14 +173,12 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
                         f"WHERE id(n) in $node_ids AND "
                         f"n.{self.COLLECTION_PREFIX} = $collection_name "
                         f"RETURN n as payload ")
-        result = self._client.query(query_string, params)
 
-        result_set = [ScoredResult(
-            id=item.get('payload').get('~id'),
-            payload=item.get('payload').get('~properties'),
-            score=0
-        ) for item in result]
-        return result_set
+        try:
+            result = self._client.query(query_string, params)
+            return [self._get_scored_result(item) for item in result]
+        except Exception as e:
+            self._na_exception_handler(e, query_string)
 
 
     async def search(
@@ -184,7 +186,7 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         collection_name: str,
         query_text: Optional[str] = None,
         query_vector: Optional[List[float]] = None,
-        limit: int = 15,
+        limit: int = None,
         with_vector: bool = False,
     ):
         """
@@ -216,6 +218,10 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
                 "Use this option only when vector data is required."
             )
 
+        # In the case of excessive limit, or zero / negative value, limit will be set to 10.
+        if not limit or limit < 0 or limit > 10:
+            limit = 10
+
         if query_vector and query_text:
             raise InvalidValueError(
                 message="The search function accepts either text or embedding as input, but not both."
@@ -228,11 +234,8 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
             data_vectors = (await self.embedding_engine.embed_text([query_text]))
             embedding = data_vectors[0]
 
-        # normalize the embeddings [from (-1,1) => (0,2) => (0,1)]
-        embedding = [(e + 1)/2 for e in embedding]
-
         # Compose the parameters map
-        params = dict(embedding=embedding, param_topk=limit)
+        params = dict(embedding=embedding, param_topk=0)
         # Compose the query
         query_string = f"""
         CALL neptune.algo.vectors.topKByEmbeddingWithFiltering({{
@@ -259,13 +262,14 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         RETURN node as payload, score
         """
 
-        query_response = self._client.query(query_string, params)
-        return [ScoredResult(
-            id=item.get('payload').get('~id'),
-            payload=item.get('payload').get('~properties'),
-            score=item.get('score'),
-            vector=item.get('embedding') if with_vector else None
-        ) for item in query_response]
+        try:
+            query_response = self._client.query(query_string, params)
+            return [self._get_scored_result(
+                item = item, with_score = True
+            ) for item in query_response]
+        except Exception as e:
+            self._na_exception_handler(e, query_string)
+
 
     async def batch_search(
         self, collection_name: str, query_texts: List[str], limit: int, with_vectors: bool = False
@@ -312,7 +316,10 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
                         f"WHERE id(n) IN $node_ids "
                         f"AND n.{self.COLLECTION_PREFIX} = $collection_name "
                         f"DETACH DELETE n")
-        self._client.query(query_string, params)
+        try:
+            self._client.query(query_string, params)
+        except Exception as e:
+            self._na_exception_handler(e, query_string)
         pass
 
     async def create_vector_index(self, index_name: str, index_property_name: str):
@@ -361,3 +368,24 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
                            f"DETACH DELETE n")
         pass
 
+    @staticmethod
+    def _na_exception_handler(ex, query_string: str):
+        """
+        Generic exception handler for NA langchain.
+        """
+        logger.error(
+            "Neptune Analytics query failed: %s | Query: [%s]", ex, query_string
+        )
+        raise ex
+
+    @staticmethod
+    def _get_scored_result(item: dict, with_vector: bool = False, with_score: bool = False) -> ScoredResult:
+        """
+        Util method to simplify the object creation of ScoredResult base on incoming NX payload response.
+        """
+        return ScoredResult(
+            id=item.get('payload').get('~id'),
+            payload=item.get('payload').get('~properties'),
+            score=item.get('score') if with_score else 0,
+            vector=item.get('embedding') if with_vector else None
+        )
