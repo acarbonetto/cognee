@@ -24,10 +24,8 @@ class IndexSchema(DataPoint):
     - metadata: A dictionary with default index fields for the schema, currently configured
     to include 'text'.
     """
-
     id: str
     text: str
-
     metadata: dict = {"index_fields": ["text"]}
 
 
@@ -88,7 +86,7 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         payload_schema: Optional[PayloadSchema] = None,
     ):
         """
-Neptune Analytics stores vector on a node level, so create_collection() implements interface for compliance but performs no operations when called.```
+        Neptune Analytics stores vector on a node level, so create_collection() implements interface for compliance but performs no operations when called.```
         as the result, create_collection( ) will be no-op.
         is available.
 
@@ -99,6 +97,24 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
               within this collection. (default None)
         """
         pass
+
+    async def create_vector_index(self, index_name: str, index_property_name: str):
+        await self.create_collection(f"{index_name}_{index_property_name}")
+
+
+    async def index_data_points(
+            self, index_name: str, index_property_name: str, data_points: list[DataPoint]
+    ):
+        await self.create_data_points(
+            f"{index_name}_{index_property_name}",
+            [
+                IndexSchema(
+                    id=str(data_point.id),
+                    text=getattr(data_point, data_point.metadata["index_fields"][0]),
+                )
+                for data_point in data_points
+            ],
+        )
 
     """ Data points """
 
@@ -172,9 +188,9 @@ Neptune Analytics stores vector on a node level, so create_collection() implemen
     async def search(
         self,
         collection_name: str,
-        query_text: Optional[str],
-        query_vector: Optional[List[float]],
-        limit: int,
+        query_text: Optional[str] = None,
+        query_vector: Optional[List[float]] = None,
+        limit: int = 15,
         with_vector: bool = False,
     ):
         """
