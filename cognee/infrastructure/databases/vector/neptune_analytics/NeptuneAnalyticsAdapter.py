@@ -64,6 +64,24 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         self.aws_session_token = aws_session_token
         self._client = NeptuneAnalyticsGraph(graph_id)
 
+    async def embed_data(self, data: list[str]) -> list[list[float]]:
+        """
+        Embeds the provided textual data into vector representation.
+
+        Uses the embedding engine to convert the list of strings into a list of float vectors.
+
+        Parameters:
+        -----------
+
+            - data (list[str]): A list of strings representing the data to be embedded.
+
+        Returns:
+        --------
+
+            - list[list[float]]: A list of embedded vectors corresponding to the input data.
+        """
+        return await self.embedding_engine.embed_text(data)
+
     """ Collection related """
 
     async def has_collection(self, collection_name: str) -> bool:
@@ -233,6 +251,9 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         else:
             data_vectors = (await self.embedding_engine.embed_text([query_text]))
             embedding = data_vectors[0]
+
+        # normalize the embeddings [from (-1,1) => (0,2) => (0,1)]
+        embedding = [(e + 1)/2 for e in embedding]
 
         # Compose the parameters map
         params = dict(embedding=embedding, param_topk=limit)
