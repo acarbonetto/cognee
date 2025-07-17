@@ -1,6 +1,7 @@
 import asyncio
 from typing import List, Optional
 from langchain_aws import NeptuneAnalyticsGraph, NeptuneGraph
+from pydantic import BaseModel
 
 from cognee.exceptions import InvalidValueError
 from cognee.infrastructure.engine import DataPoint
@@ -67,6 +68,11 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         self.aws_session_token = aws_session_token
         self._client = NeptuneAnalyticsGraph(graph_id)
 
+    async def get_connection(self):
+        # This method is part of the default implementation but not defined in the interface.
+        # No operation is performed here because the concept of connection is not applicable in this context.
+        pass
+
     async def embed_data(self, data: list[str]) -> list[list[float]]:
         """
         Embeds the provided textual data into vector representation.
@@ -116,6 +122,10 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         """
         pass
 
+    async def get_collection(self, collection_name: str):
+        # This method is part of the default implementation but not defined in the interface.
+        # No operation is performed here because the concept of collection is not applicable in NeptuneAnalytics vector store.
+        pass
 
     async def create_data_points(self, collection_name: str, data_points: List[DataPoint]):
         """
@@ -373,6 +383,11 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
         # Run actual truncate
         self._client.query(f"MATCH (n :{self.VECTOR_NODE_IDENTIFIER}) "
                            f"DETACH DELETE n")
+        pass
+
+    def get_data_point_schema(self, model_type: BaseModel):
+        # This method is part of the default implementation but not defined in the interface.
+        # No operation is performed here because the concept of schema is not applicable in Neptune Anlaytics vector store.
         pass
 
     @staticmethod
