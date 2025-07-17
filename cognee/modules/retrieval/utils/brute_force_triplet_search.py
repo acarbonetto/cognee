@@ -125,6 +125,8 @@ async def brute_force_search(
         collections (Optional[List[str]]): List of collections to query.
         properties_to_project (Optional[List[str]]): List of properties to project.
         memory_fragment (Optional[CogneeGraph]): Existing memory fragment to reuse.
+        node_type: node type to filter
+        node_name: node name to filter
 
     Returns:
         list: The top triplet results.
@@ -158,9 +160,7 @@ async def brute_force_search(
     async def search_in_collection(collection_name: str):
         try:
             return await vector_engine.search(
-                collection_name=collection_name,
-                query_text=query,
-                limit=0,
+                collection_name=collection_name, query_text=query, limit=0
             )
         except CollectionNotFoundError:
             return []

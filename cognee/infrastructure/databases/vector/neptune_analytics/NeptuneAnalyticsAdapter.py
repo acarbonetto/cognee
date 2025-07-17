@@ -34,6 +34,9 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
 
     VECTOR_NODE_IDENTIFIER = "COGNEE_VECTOR_NODE"
     COLLECTION_PREFIX = "VECTOR_COLLECTION"
+    TOPK_LOWER_BOUND = 0
+    TOPK_UPPER_BOUND = 10
+
 
     def __init__(self,
                  graph_id: Optional[str],
@@ -219,12 +222,12 @@ class NeptuneAnalyticsAdapter(VectorDBInterface):
             )
 
         # In the case of excessive limit, or zero / negative value, limit will be set to 10.
-        if not limit or limit < 0 or limit > 10:
+        if not limit or limit <= self.TOPK_LOWER_BOUND or limit > self.TOPK_UPPER_BOUND:
             logger.warning(
                 "Provided limit (%s) is invalid (zero, negative, or exceeds maximum). "
                 "Defaulting to limit=10.", limit
             )
-            limit = 10
+            limit = self.TOPK_UPPER_BOUND
 
         if query_vector and query_text:
             raise InvalidValueError(
