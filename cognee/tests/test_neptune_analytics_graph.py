@@ -109,6 +109,9 @@ async def main():
     This example demonstrates how to add nodes to Neptune Analytics
     """
 
+    print("------TRUNCATE GRAPH-------")
+    await na_adapter.delete_graph()
+
     print("------SETUP DATA-------")
     nodes, edges = setup()
 
@@ -192,10 +195,19 @@ async def main():
         print(subgraph_edge)
 
     print("------STAT-------")
-    stat = await na_adapter.get_graph_metrics()
+    stat = await na_adapter.get_graph_metrics(include_optional=True)
     assert type(stat) is dict
-    print(f"Graph statistic: {stat}")
-
+    assert stat['num_nodes'] == 7
+    assert stat['num_edges'] == 7
+    assert stat['mean_degree'] == 2.0
+    assert round(stat['edge_density'], 3) == 0.167
+    assert stat['num_connected_components'] == [7]
+    assert stat['sizes_of_connected_components'] == 1
+    assert stat['num_selfloops'] == 0
+    # Unsupported optional metrics
+    assert stat['diameter'] == -1
+    assert stat['avg_shortest_path_length'] == -1
+    assert stat['avg_clustering'] == -1
 
     print("------DELETE-------")
     # delete all nodes and edges:
@@ -211,7 +223,5 @@ async def main():
     else:
         print(f"Delete failed")
 
-
 if __name__ == "__main__":
     asyncio.run(main())
-

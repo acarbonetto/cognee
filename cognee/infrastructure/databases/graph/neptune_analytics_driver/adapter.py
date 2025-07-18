@@ -686,6 +686,9 @@ class NeptuneAnalyticsGraphDB(GraphDBInterface):
             "avg_clustering": -1,
         }
 
+        if include_optional:
+            optional_metrics['num_selfloops'] = await self._count_self_loops()
+
         return mandatory_metrics | optional_metrics
 
     async def has_edge(self, source_id: str, target_id: str, relationship_name: str) -> bool:
@@ -1012,21 +1015,19 @@ class NeptuneAnalyticsGraphDB(GraphDBInterface):
 
     async def _get_connected_components_stat(self):
         """
-        Retrieve the number of connected components in a specified graph using the Neo4j
-        adapter.
+        Retrieve statistics about connected components in the graph.
 
-        Parameters:
-        -----------
+        This method analyzes the graph to find all connected components
+        and returns both the sizes of each component and the total number of components.
 
-            - adapter (Neo4jAdapter): An instance of Neo4jAdapter for executing database
-              queries.
-            - graph_name (str): The name of the graph to analyze for connected components.
 
         Returns:
         --------
-
-            Returns the number of connected components in the graph. Returns 0 if no results are
-            found.
+            tuple[list[int], int]
+            A tuple containing:
+              - A list of sizes for each connected component (descending order).
+              - The total number of connected components.
+            Returns ([], 0) if no connected components are found.
         """
         query = f"""
         MATCH(n :{self._GRAPH_NODE_LABEL})
@@ -1041,6 +1042,26 @@ class NeptuneAnalyticsGraphDB(GraphDBInterface):
         num_connected_components = len(result)
 
         return (size_connected_components, num_connected_components)
+
+    async def _count_self_loops(self):
+        """
+        Count the number of self-loop relationships in the Neptune Anlaytics graph backend.
+
+        This function executes a OpenCypher query to find and count all edge relationships that
+        begin and end at the same node (self-loops). It returns the count of such relationships
+        or 0 if no results are found.
+
+        Returns:
+        --------
+
+            The count of self-loop relationships found in the database, or 0 if none were found.
+        """
+        query = """
+        MATCH (n)-[r]->(n)
+        RETURN count(r) AS adapter_loop_count;
+        """
+        result = await self.query(query)
+        return result[0]["adapter_loop_count"] if result else 0
 
     @staticmethod
     def _convert_relationship_to_edge(relationship: dict) -> EdgeData:
