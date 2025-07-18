@@ -8,9 +8,7 @@ from cognee.modules.users.methods import get_default_user
 from cognee.shared.logging_utils import get_logger
 from cognee.modules.search.types import SearchType
 from cognee.infrastructure.databases.vector import get_vector_engine
-from cognee.infrastructure.databases.vector.neptune.NeptuneAdapter import NeptuneVectorDB, \
-    IndexSchema
-
+from infrastructure.databases.hybrid.neptune_analytics.NeptuneAnalyticsAdapter import NeptuneAnalyticsAdapter, IndexSchema
 
 logger = get_logger()
 
@@ -108,7 +106,7 @@ async def vector_backend_api_test():
     graph_id = os.getenv('GRAPH_ID', "")
     cognee.config.set_vector_db_url(f"neptune-graph://{graph_id}")
     engine = get_vector_engine()
-    assert isinstance(engine, NeptuneVectorDB)
+    assert isinstance(engine, NeptuneAnalyticsAdapter)
 
     TEST_COLLECTION_NAME = "test"
     # Data point - 1
