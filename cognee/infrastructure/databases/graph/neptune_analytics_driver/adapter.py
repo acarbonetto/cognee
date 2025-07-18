@@ -688,6 +688,12 @@ class NeptuneAnalyticsGraphDB(GraphDBInterface):
 
         if include_optional:
             optional_metrics['num_selfloops'] = await self._count_self_loops()
+            # Unsupported due to long-running queries when computing the shortest path for each node in the graph:
+            # optional_metrics['diameter']
+            # optional_metrics['avg_shortest_path_length']
+            #
+            # Unsupported due to incompatible algorithm: localClusteringCoefficient
+            # optional_metrics['avg_clustering']
 
         return mandatory_metrics | optional_metrics
 
