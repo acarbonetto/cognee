@@ -146,12 +146,12 @@ def create_graph_engine(
         if not graph_database_url:
             raise EnvironmentError("Missing Neptune endpoint.")
 
-        if not graph_database_url.startswith("neptune-graph://"):
-            raise ValueError("Neptune endpoint must have the format neptune-graph://<GRAPH_ID>")
+        from .neptune_driver.adapter import NeptuneGraphDB, NEPTUNE_ENDPOINT_URL
 
-        graph_identifier = graph_database_url.replace("neptune-graph://", "")
+        if not graph_database_url.startswith(NEPTUNE_ENDPOINT_URL):
+            raise ValueError(f"Neptune endpoint must have the format {NEPTUNE_ENDPOINT_URL}<GRAPH_ID>")
 
-        from .neptune_driver.adapter import NeptuneGraphDB
+        graph_identifier = graph_database_url.replace(NEPTUNE_ENDPOINT_URL, "")
 
         return NeptuneGraphDB(
             graph_id=graph_identifier,
@@ -174,12 +174,12 @@ def create_graph_engine(
         if not graph_database_url:
             raise EnvironmentError("Missing Neptune endpoint.")
 
-        if not graph_database_url.startswith("neptune-graph://"):
-            raise ValueError("Neptune endpoint must have the format neptune-graph://<GRAPH_ID>")
+        from ..hybrid.neptune_analytics.NeptuneAnalyticsAdapter import NeptuneAnalyticsAdapter, NEPTUNE_ANALYTICS_ENDPOINT_URL
 
-        graph_identifier = graph_database_url.replace("neptune-graph://", "")
+        if not graph_database_url.startswith(NEPTUNE_ANALYTICS_ENDPOINT_URL):
+            raise ValueError(f"Neptune endpoint must have the format '{NEPTUNE_ANALYTICS_ENDPOINT_URL}<GRAPH_ID>'")
 
-        from ..hybrid.neptune_analytics.NeptuneAnalyticsAdapter import NeptuneAnalyticsAdapter
+        graph_identifier = graph_database_url.replace(NEPTUNE_ANALYTICS_ENDPOINT_URL, "")
 
         return NeptuneAnalyticsAdapter(
             graph_id=graph_identifier,
