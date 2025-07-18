@@ -667,9 +667,35 @@ class NeptuneAnalyticsGraphDB(GraphDBInterface):
         --------
             - Dict[str, Any]: A dictionary containing graph metrics and statistics.
         """
-        # TODO: Implement using aws_langchain Neptune Analytics metrics retrieval
-        logger.warning("Neptune Analytics get_graph_metrics method not yet implemented")
-        return {}
+        num_nodes, num_edges = await self._get_model_independent_graph_data()
+        num_cluster, list_clsuter_size = await self._get_connected_components_stat()
+
+        mandatory_metrics = {
+            "num_nodes": num_nodes,
+            "num_edges": num_edges,
+            "mean_degree": (2 * num_edges) / num_nodes if num_nodes != 0 else None,
+            "edge_density": num_edges * 1.0 / (num_nodes * (num_nodes - 1)) if num_nodes != 0 else None,
+            "num_connected_components": num_cluster,
+            "sizes_of_connected_components": list_clsuter_size
+        }
+
+        optional_metrics = {
+            "num_selfloops": -1,
+            "diameter": -1,
+            "avg_shortest_path_length": -1,
+            "avg_clustering": -1,
+        }
+
+        if include_optional:
+            optional_metrics['num_selfloops'] = await self._count_self_loops()
+            # Unsupported due to long-running queries when computing the shortest path for each node in the graph:
+            # optional_metrics['diameter']
+            # optional_metrics['avg_shortest_path_length']
+            #
+            # Unsupported due to incompatible algorithm: localClusteringCoefficient
+            # optional_metrics['avg_clustering']
+
+        return mandatory_metrics | optional_metrics
 
     async def has_edge(self, source_id: str, target_id: str, relationship_name: str) -> bool:
         """
@@ -967,6 +993,79 @@ class NeptuneAnalyticsGraphDB(GraphDBInterface):
             error_msg = format_neptune_error(e)
             logger.error(f"Failed to get connections for node {node_id}: {error_msg}")
             raise Exception(f"Failed to get connections: {error_msg}")
+
+
+    async def _get_model_independent_graph_data(self):
+        """
+        Retrieve the basic graph data without considering the model specifics, returning nodes
+        and edges.
+
+        Returns:
+        --------
+
+            A tuple of nodes and edges data.
+        """
+        query_string = f"""
+            MATCH (n :{self._GRAPH_NODE_LABEL})
+            WITH count(n) AS nodeCount
+            MATCH (a :{self._GRAPH_NODE_LABEL})-[r]->(b :{self._GRAPH_NODE_LABEL})
+            RETURN nodeCount AS numVertices, count(r) AS numEdges
+        """
+        query_response = await self.query(query_string)
+        num_nodes = query_response[0].get('numVertices')
+        num_edges = query_response[0].get('numEdges')
+
+        return (num_nodes, num_edges)
+
+    async def _get_connected_components_stat(self):
+        """
+        Retrieve statistics about connected components in the graph.
+
+        This method analyzes the graph to find all connected components
+        and returns both the sizes of each component and the total number of components.
+
+
+        Returns:
+        --------
+            tuple[list[int], int]
+            A tuple containing:
+              - A list of sizes for each connected component (descending order).
+              - The total number of connected components.
+            Returns ([], 0) if no connected components are found.
+        """
+        query = f"""
+        MATCH(n :{self._GRAPH_NODE_LABEL})
+        CALL neptune.algo.wcc(n,{{}})
+        YIELD node, component
+        RETURN component, count(*) AS size
+        ORDER BY size DESC 
+        """
+
+        result = await self.query(query)
+        size_connected_components = [record["size"] for record in result] if result else []
+        num_connected_components = len(result)
+
+        return (size_connected_components, num_connected_components)
+
+    async def _count_self_loops(self):
+        """
+        Count the number of self-loop relationships in the Neptune Anlaytics graph backend.
+
+        This function executes a OpenCypher query to find and count all edge relationships that
+        begin and end at the same node (self-loops). It returns the count of such relationships
+        or 0 if no results are found.
+
+        Returns:
+        --------
+
+            The count of self-loop relationships found in the database, or 0 if none were found.
+        """
+        query = f"""
+        MATCH (n :{self._GRAPH_NODE_LABEL})-[r]->(n :{self._GRAPH_NODE_LABEL})
+        RETURN count(r) AS adapter_loop_count;
+        """
+        result = await self.query(query)
+        return result[0]["adapter_loop_count"] if result else 0
 
     @staticmethod
     def _convert_relationship_to_edge(relationship: dict) -> EdgeData:
