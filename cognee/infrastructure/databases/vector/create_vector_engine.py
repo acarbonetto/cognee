@@ -145,12 +145,12 @@ def create_vector_engine(
         if not vector_db_url:
             raise EnvironmentError("Missing Neptune endpoint.")
 
-        if not vector_db_url.startswith("neptune-graph://"):
-            raise ValueError("Neptune endpoint must have the format 'neptune-graph://<GRAPH_ID>'")
+        from infrastructure.databases.hybrid.neptune_analytics.NeptuneAnalyticsAdapter import NeptuneAnalyticsAdapter, NEPTUNE_ANALYTICS_ENDPOINT_URL
+        if not vector_db_url.startswith(NEPTUNE_ANALYTICS_ENDPOINT_URL):
+            raise ValueError(f"Neptune endpoint must have the format '{NEPTUNE_ANALYTICS_ENDPOINT_URL}<GRAPH_ID>'")
 
-        graph_identifier = vector_db_url.replace("neptune-graph://", "")
+        graph_identifier = vector_db_url.replace(NEPTUNE_ANALYTICS_ENDPOINT_URL, "")
 
-        from infrastructure.databases.hybrid.neptune_analytics.NeptuneAnalyticsAdapter import NeptuneAnalyticsAdapter
         return NeptuneAnalyticsAdapter(
             graph_id=graph_identifier,
             embedding_engine=embedding_engine,

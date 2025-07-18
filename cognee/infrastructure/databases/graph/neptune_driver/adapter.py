@@ -33,6 +33,8 @@ except ImportError:
     logger.warning("langchain_aws not available. Neptune Analytics functionality will be limited.")
     LANGCHAIN_AWS_AVAILABLE = False
 
+NEPTUNE_ENDPOINT_URL = "neptune-graph://"
+
 class NeptuneGraphDB(GraphDBInterface):
     """
     Adapter for interacting with Amazon Neptune Analytics graph store.
