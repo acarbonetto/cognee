@@ -6,10 +6,9 @@ import pytest
 from cognee.modules.chunking.models import DocumentChunk
 from cognee.modules.engine.models import Entity, EntityType
 from cognee.modules.data.processing.document_types import TextDocument
-from cognee.infrastructure.databases.graph.neptune_driver import NeptuneGraphDB
 from cognee.infrastructure.databases.vector.embeddings import get_embedding_engine
-from cognee.infrastructure.databases.vector.neptune.NeptuneAdapter import NeptuneVectorDB
 from cognee.shared.logging_utils import get_logger
+from infrastructure.databases.hybrid.neptune_analytics.NeptuneAnalyticsAdapter import NeptuneAnalyticsAdapter
 
 # Set up Amazon credentials in .env file and get the values from environment variables
 load_dotenv()
@@ -17,8 +16,8 @@ graph_id = os.getenv('GRAPH_ID', "")
 
 # get the default embedder
 embedding_engine = get_embedding_engine()
-na_graph = NeptuneGraphDB(graph_id)
-na_vector = NeptuneVectorDB(graph_id, embedding_engine)
+na_graph = NeptuneAnalyticsAdapter(graph_id)
+na_vector = NeptuneAnalyticsAdapter(graph_id, embedding_engine)
 
 collection = "test_collection"
 
