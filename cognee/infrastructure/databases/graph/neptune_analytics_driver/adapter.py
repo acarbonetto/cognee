@@ -1060,8 +1060,8 @@ class NeptuneAnalyticsGraphDB(GraphDBInterface):
 
             The count of self-loop relationships found in the database, or 0 if none were found.
         """
-        query = """
-        MATCH (n)-[r]->(n)
+        query = f"""
+        MATCH (n :{self._GRAPH_NODE_LABEL})-[r]->(n :{self._GRAPH_NODE_LABEL})
         RETURN count(r) AS adapter_loop_count;
         """
         result = await self.query(query)
