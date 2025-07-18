@@ -999,13 +999,11 @@ class NeptuneAnalyticsGraphDB(GraphDBInterface):
 
             A tuple of nodes and edges data.
         """
-        query_string = """
-            CALL neptune.graph.pg_info()
-            YIELD metric, count
-            WHERE metric in ['numVertices', 'numEdges']
-            RETURN
-              max(CASE WHEN metric = 'numVertices' THEN count END) AS numVertices,
-              max(CASE WHEN metric = 'numEdges' THEN count END) AS numEdges
+        query_string = f"""
+            MATCH (n :{self._GRAPH_NODE_LABEL})
+            WITH count(n) AS nodeCount
+            MATCH (a :{self._GRAPH_NODE_LABEL})-[r]->(b :{self._GRAPH_NODE_LABEL})
+            RETURN nodeCount AS numVertices, count(r) AS numEdges
         """
         query_response = await self.query(query_string)
         num_nodes = query_response[0].get('numVertices')
