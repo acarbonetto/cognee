@@ -31,6 +31,7 @@ class IndexSchema(DataPoint):
     text: str
     metadata: dict = {"index_fields": ["text"]}
 
+NEPTUNE_ANALYTICS_ENDPOINT_URL = "neptune-graph://"
 
 class NeptuneAnalyticsAdapter(NeptuneGraphDB, VectorDBInterface):
     """
@@ -43,8 +44,8 @@ class NeptuneAnalyticsAdapter(NeptuneGraphDB, VectorDBInterface):
 
     _VECTOR_NODE_LABEL = "COGNEE_NODE"
     _COLLECTION_PREFIX = "VECTOR_COLLECTION"
-    TOPK_LOWER_BOUND = 0
-    TOPK_UPPER_BOUND = 10
+    _TOPK_LOWER_BOUND = 0
+    _TOPK_UPPER_BOUND = 10
 
     def __init__(
             self,
@@ -104,8 +105,7 @@ class NeptuneAnalyticsAdapter(NeptuneGraphDB, VectorDBInterface):
         --------
             - list[list[float]]: A list of embedded vectors corresponding to the input data.
         """
-        if self.embedding_engine is None:
-            raise ValueError("Neptune Analytics requires an embedder defined to make vector operations")
+        self._validate_embedding_engine()
         return await self.embedding_engine.embed_text(data)
 
     async def has_collection(self, collection_name: str) -> bool:
@@ -157,8 +157,7 @@ class NeptuneAnalyticsAdapter(NeptuneGraphDB, VectorDBInterface):
             - data_points (List[DataPoint]): A list of data points to be added to the
               collection.
         """
-        if self.embedding_engine is None:
-            raise ValueError("Neptune Analytics requires an embedder defined to make vector operations")
+        self._validate_embedding_engine()
 
         # Fetch embeddings
         texts = [DataPoint.get_embeddable_data(t) for t in data_points]
@@ -247,8 +246,7 @@ class NeptuneAnalyticsAdapter(NeptuneGraphDB, VectorDBInterface):
         --------
             A list of scored results that match the query.
         """
-        if self.embedding_engine is None:
-            raise ValueError("Neptune Analytics requires an embedder defined to make vector operations")
+        self._validate_embedding_engine()
 
         if with_vector:
             logger.warning(
@@ -258,12 +256,12 @@ class NeptuneAnalyticsAdapter(NeptuneGraphDB, VectorDBInterface):
             )
 
         # In the case of excessive limit, or zero / negative value, limit will be set to 10.
-        if not limit or limit <= self.TOPK_LOWER_BOUND or limit > self.TOPK_UPPER_BOUND:
+        if not limit or limit <= self._TOPK_LOWER_BOUND or limit > self._TOPK_UPPER_BOUND:
             logger.warning(
                 "Provided limit (%s) is invalid (zero, negative, or exceeds maximum). "
                 "Defaulting to limit=10.", limit
             )
-            limit = self.TOPK_UPPER_BOUND
+            limit = self._TOPK_UPPER_BOUND
 
         if query_vector and query_text:
             raise InvalidValueError(
@@ -331,8 +329,7 @@ class NeptuneAnalyticsAdapter(NeptuneGraphDB, VectorDBInterface):
         --------
             A list of search result sets, one for each query input.
         """
-        if self.embedding_engine is None:
-            raise ValueError("Neptune Analytics requires an embedder defined to make vector operations")
+        self._validate_embedding_engine()
 
         # Convert text to embedding array in batch
         data_vectors = (await self.embedding_engine.embed_text(query_texts))
@@ -429,3 +426,11 @@ class NeptuneAnalyticsAdapter(NeptuneGraphDB, VectorDBInterface):
             "Neptune Analytics query failed: %s | Query: [%s]", ex, query_string
         )
         raise ex
+
+    def _validate_embedding_engine(self):
+        """
+        Validates if the embedding_engine is defined
+        :raises: ValueError if this object does not have a valid embedding_engine
+        """
+        if self.embedding_engine is None:
+            raise ValueError("Neptune Analytics requires an embedder defined to make vector operations")
