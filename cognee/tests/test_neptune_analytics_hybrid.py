@@ -9,7 +9,7 @@ from cognee.modules.data.processing.document_types import TextDocument
 from cognee.infrastructure.databases.graph.neptune_analytics_driver import NeptuneAnalyticsGraphDB
 from cognee.infrastructure.databases.vector.embeddings import get_embedding_engine
 from cognee.infrastructure.databases.vector.neptune_analytics.NeptuneAnalyticsAdapter import NeptuneAnalyticsVectorDB
-from shared.logging_utils import get_logger
+from cognee.shared.logging_utils import get_logger
 
 # Set up Amazon credentials in .env file and get the values from environment variables
 load_dotenv()
