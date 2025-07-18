@@ -667,9 +667,26 @@ class NeptuneAnalyticsGraphDB(GraphDBInterface):
         --------
             - Dict[str, Any]: A dictionary containing graph metrics and statistics.
         """
-        # TODO: Implement using aws_langchain Neptune Analytics metrics retrieval
-        logger.warning("Neptune Analytics get_graph_metrics method not yet implemented")
-        return {}
+        num_nodes, num_edges = await self._get_model_independent_graph_data()
+        num_cluster, list_clsuter_size = await self._get_connected_components_stat()
+
+        mandatory_metrics = {
+            "num_nodes": num_nodes,
+            "num_edges": num_edges,
+            "mean_degree": (2 * num_edges) / num_nodes if num_nodes != 0 else None,
+            "edge_density": num_edges * 1.0 / (num_nodes * (num_nodes - 1)) if num_nodes != 0 else None,
+            "num_connected_components": num_cluster,
+            "sizes_of_connected_components": list_clsuter_size
+        }
+
+        optional_metrics = {
+            "num_selfloops": -1,
+            "diameter": -1,
+            "avg_shortest_path_length": -1,
+            "avg_clustering": -1,
+        }
+
+        return mandatory_metrics | optional_metrics
 
     async def has_edge(self, source_id: str, target_id: str, relationship_name: str) -> bool:
         """
@@ -967,6 +984,63 @@ class NeptuneAnalyticsGraphDB(GraphDBInterface):
             error_msg = format_neptune_error(e)
             logger.error(f"Failed to get connections for node {node_id}: {error_msg}")
             raise Exception(f"Failed to get connections: {error_msg}")
+
+
+    async def _get_model_independent_graph_data(self):
+        """
+        Retrieve the basic graph data without considering the model specifics, returning nodes
+        and edges.
+
+        Returns:
+        --------
+
+            A tuple of nodes and edges data.
+        """
+        query_string = """
+            CALL neptune.graph.pg_info()
+            YIELD metric, count
+            WHERE metric in ['numVertices', 'numEdges']
+            RETURN
+              max(CASE WHEN metric = 'numVertices' THEN count END) AS numVertices,
+              max(CASE WHEN metric = 'numEdges' THEN count END) AS numEdges
+        """
+        query_response = await self.query(query_string)
+        num_nodes = query_response[0].get('numVertices')
+        num_edges = query_response[0].get('numEdges')
+
+        return (num_nodes, num_edges)
+
+    async def _get_connected_components_stat(self):
+        """
+        Retrieve the number of connected components in a specified graph using the Neo4j
+        adapter.
+
+        Parameters:
+        -----------
+
+            - adapter (Neo4jAdapter): An instance of Neo4jAdapter for executing database
+              queries.
+            - graph_name (str): The name of the graph to analyze for connected components.
+
+        Returns:
+        --------
+
+            Returns the number of connected components in the graph. Returns 0 if no results are
+            found.
+        """
+        query = f"""
+        MATCH(n :{self._GRAPH_NODE_LABEL})
+        CALL neptune.algo.wcc(n,{{}})
+        YIELD node, component
+        RETURN component, count(*) AS size
+        ORDER BY size DESC 
+        """
+
+        result = await self.query(query)
+        size_connected_components = [record["size"] for record in result] if result else []
+        num_connected_components = len(result)
+
+        return (size_connected_components, num_connected_components)
 
     @staticmethod
     def _convert_relationship_to_edge(relationship: dict) -> EdgeData:

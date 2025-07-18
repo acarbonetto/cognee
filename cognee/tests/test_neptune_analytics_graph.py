@@ -191,6 +191,12 @@ async def main():
     for subgraph_edge in subgraph_edges:
         print(subgraph_edge)
 
+    print("------STAT-------")
+    stat = await na_adapter.get_graph_metrics()
+    assert type(stat) is dict
+    print(f"Graph statistic: {stat}")
+
+
     print("------DELETE-------")
     # delete all nodes and edges:
     await na_adapter.delete_graph()
@@ -205,5 +211,7 @@ async def main():
     else:
         print(f"Delete failed")
 
+
 if __name__ == "__main__":
     asyncio.run(main())
+
