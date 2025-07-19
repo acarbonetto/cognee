@@ -145,7 +145,7 @@ def create_vector_engine(
         if not vector_db_url:
             raise EnvironmentError("Missing Neptune endpoint.")
 
-        from infrastructure.databases.hybrid.neptune_analytics.NeptuneAnalyticsAdapter import NeptuneAnalyticsAdapter, NEPTUNE_ANALYTICS_ENDPOINT_URL
+        from cognee.infrastructure.databases.hybrid.neptune_analytics.NeptuneAnalyticsAdapter import NeptuneAnalyticsAdapter, NEPTUNE_ANALYTICS_ENDPOINT_URL
         if not vector_db_url.startswith(NEPTUNE_ANALYTICS_ENDPOINT_URL):
             raise ValueError(f"Neptune endpoint must have the format '{NEPTUNE_ANALYTICS_ENDPOINT_URL}<GRAPH_ID>'")
 
