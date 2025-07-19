@@ -8,14 +8,14 @@ from cognee.modules.users.methods import get_default_user
 from cognee.shared.logging_utils import get_logger
 from cognee.modules.search.types import SearchType
 from cognee.infrastructure.databases.vector import get_vector_engine
-from infrastructure.databases.hybrid.neptune_analytics.NeptuneAnalyticsAdapter import NeptuneAnalyticsAdapter, IndexSchema
+from cognee.infrastructure.databases.hybrid.neptune_analytics.NeptuneAnalyticsAdapter import NeptuneAnalyticsAdapter, IndexSchema
 
 logger = get_logger()
 
 
 async def main():
     graph_id = os.getenv('GRAPH_ID', "")
-    cognee.config.set_vector_db_provider("neptune")
+    cognee.config.set_vector_db_provider("neptune_analytics")
     cognee.config.set_vector_db_url(f"neptune-graph://{graph_id}")
     data_directory_path = str(
         pathlib.Path(
@@ -90,7 +90,7 @@ async def main():
     await cognee.prune.prune_system(metadata=True)
 
 async def vector_backend_api_test():
-    cognee.config.set_vector_db_provider("neptune")
+    cognee.config.set_vector_db_provider("neptune_analytics")
 
     # When URL is absent
     cognee.config.set_vector_db_url(None)
