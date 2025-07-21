@@ -249,7 +249,12 @@ async def misc_methods():
     print(nodes_predecessors)
     assert len(nodes_predecessors) == 0
 
-
+    print("------GET SUCCESSORS-------")
+    nodes_successors = await na_adapter.get_successors(
+        node_id="dummy_node_id", edge_label="test_label"
+    )
+    print(nodes_successors)
+    assert len(nodes_successors) == 0
 
     pass
 
