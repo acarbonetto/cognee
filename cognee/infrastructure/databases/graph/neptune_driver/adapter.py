@@ -143,7 +143,7 @@ class NeptuneGraphDB(GraphDBInterface):
                 serialized_properties[property_key] = str(property_value)
                 continue
 
-            if isinstance(property_value, dict):
+            if isinstance(property_value, dict) or isinstance(property_value, list):
                 serialized_properties[property_key] = json.dumps(property_value, cls=JSONEncoder)
                 continue
 
