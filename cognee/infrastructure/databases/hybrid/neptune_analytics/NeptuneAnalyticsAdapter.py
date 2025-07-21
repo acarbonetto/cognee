@@ -169,7 +169,7 @@ class NeptuneAnalyticsAdapter(NeptuneGraphDB, VectorDBInterface):
             data_vector = data_vectors[index]
 
             # Fetch properties
-            properties = self.serialize_properties(data_point.model_dump())
+            properties = self._serialize_properties(data_point.model_dump())
             properties[self._COLLECTION_PREFIX] = collection_name
             params = dict(
                 node_id = str(node_id),
