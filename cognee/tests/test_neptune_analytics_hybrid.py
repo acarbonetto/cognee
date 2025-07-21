@@ -8,7 +8,7 @@ from cognee.modules.engine.models import Entity, EntityType
 from cognee.modules.data.processing.document_types import TextDocument
 from cognee.infrastructure.databases.vector.embeddings import get_embedding_engine
 from cognee.shared.logging_utils import get_logger
-from infrastructure.databases.hybrid.neptune_analytics.NeptuneAnalyticsAdapter import NeptuneAnalyticsAdapter
+from cognee.infrastructure.databases.hybrid.neptune_analytics.NeptuneAnalyticsAdapter import NeptuneAnalyticsAdapter
 
 # Set up Amazon credentials in .env file and get the values from environment variables
 load_dotenv()
