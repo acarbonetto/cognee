@@ -256,6 +256,25 @@ async def misc_methods():
     print(nodes_successors)
     assert len(nodes_successors) == 0
 
+    print("------Remove connection (Predecessors)-------")
+    await na_adapter.remove_connection_to_predecessors_of(
+        node_ids=["dummy_node_id"], edge_label="test_label"
+    )
+
+    print("------Remove connection (Successors)-------")
+    await na_adapter.remove_connection_to_successors_of(
+        node_ids=["dummy_node_id"], edge_label="test_label"
+    )
+
+    print("------Get Labels (Node)-------")
+    node_labels = await na_adapter.get_node_labels_string()
+    print(node_labels)
+
+    print("------Get Labels (Edge)-------")
+    edge_labels = await na_adapter.get_relationship_labels_string()
+    print(edge_labels)
+
+
     pass
 
 

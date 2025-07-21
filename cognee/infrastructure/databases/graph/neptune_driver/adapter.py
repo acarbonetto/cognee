@@ -1091,6 +1091,112 @@ class NeptuneGraphDB(GraphDBInterface):
             raise Exception(f"Failed to get connections: {error_msg}")
 
 
+    async def remove_connection_to_predecessors_of(
+        self, node_ids: list[str], edge_label: str
+    ) -> None:
+        """
+        Remove connections (edges) to all predecessors of specified nodes based on edge label.
+
+        Parameters:
+        -----------
+
+            - node_ids (list[str]): A list of IDs of nodes from which connections are to be
+              removed.
+            - edge_label (str): The label of the edges to remove.
+
+        Returns:
+        --------
+
+            - None: None
+        """
+        query = f"""
+        UNWIND $node_ids AS node_id
+        MATCH ({{`~id`: node_id}})-[r:{edge_label}]->(predecessor)
+        DELETE r;
+        """
+        params = {"node_ids": node_ids}
+        await self.query(query, params)
+
+
+    async def remove_connection_to_successors_of(
+        self, node_ids: list[str], edge_label: str
+    ) -> None:
+        """
+        Remove connections (edges) to all successors of specified nodes based on edge label.
+
+        Parameters:
+        -----------
+
+            - node_ids (list[str]): A list of IDs of nodes from which connections are to be
+              removed.
+            - edge_label (str): The label of the edges to remove.
+
+        Returns:
+        --------
+
+            - None: None
+        """
+        query = f"""
+        UNWIND $node_ids AS node_id
+        MATCH ({{`~id`: node_id}})<-[r:{edge_label}]-(successor)
+        DELETE r;
+        """
+        params = {"node_ids": node_ids}
+        await self.query(query, params)
+
+
+    async def get_node_labels_string(self):
+        """
+        Fetch all node labels from the database and return them as a formatted string.
+
+        Returns:
+        --------
+
+            A formatted string of node labels.
+        """
+        node_labels_query = "CALL neptune.graph.pg_schema() YIELD schema RETURN schema.nodeLabels as labels "
+        node_labels_result = await self.query(node_labels_query)
+        node_labels = node_labels_result[0]["labels"] if node_labels_result else []
+
+        if not node_labels:
+            raise ValueError("No node labels found in the database")
+
+        return str(node_labels)
+
+    async def get_relationship_labels_string(self):
+        """
+        Fetch all relationship types from the database and return them as a formatted string.
+
+        Returns:
+        --------
+
+            A formatted string of relationship types.
+        """
+        relationship_types_query = "CALL neptune.graph.pg_schema() YIELD schema RETURN schema.edgeLabels as relationships "
+        relationship_types_result = await self.query(relationship_types_query)
+        relationship_types = (
+            relationship_types_result[0]["relationships"] if relationship_types_result else []
+        )
+
+        if not relationship_types:
+            raise ValueError("No relationship types found in the database.")
+
+        relationship_types_undirected_str = (
+            "{"
+            + ", ".join(f"{rel}" + ": {orientation: 'UNDIRECTED'}" for rel in relationship_types)
+            + "}"
+        )
+        return relationship_types_undirected_str
+
+    async def project_entire_graph(self, graph_name="myGraph"):
+        """
+        Project all node labels and relationship types into an in-memory graph using GDS.
+
+        Note: This method is currently a placeholder because GDS (Graph Data Science)
+        projection is not supported in Neptune Anlaytics.
+        """
+        pass
+
     async def _get_model_independent_graph_data(self):
         """
         Retrieve the basic graph data without considering the model specifics, returning nodes
