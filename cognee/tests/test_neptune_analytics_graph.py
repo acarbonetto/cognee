@@ -223,5 +223,31 @@ async def main():
     else:
         print(f"Delete failed")
 
+async def misc_methods():
+
+    print("------TRUNCATE GRAPH-------")
+    await na_adapter.delete_graph()
+
+    print("------SETUP TEST ENV-------")
+    nodes, edges = setup()
+    await na_adapter.add_nodes(nodes)
+    await na_adapter.add_edges(edges)
+
+    print("------GET GRAPH-------")
+    all_nodes, all_edges = await na_adapter.get_graph_data()
+    print(f"found {len(all_nodes)} nodes and found {len(all_edges)} edges")
+
+    print("------GET DISCONNECTED-------")
+    nodes_disconnected = await na_adapter.get_disconnected_nodes()
+    print(nodes_disconnected)
+    assert len(nodes_disconnected) == 0
+
+
+    pass
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    # asyncio.run(main())
+    asyncio.run(misc_methods())
+
+

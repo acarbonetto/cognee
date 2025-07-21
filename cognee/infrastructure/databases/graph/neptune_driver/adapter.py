@@ -819,6 +819,25 @@ class NeptuneGraphDB(GraphDBInterface):
             logger.error(f"Failed to get edges for node {node_id}: {error_msg}")
             raise Exception(f"Failed to get edges: {error_msg}")
 
+    async def get_disconnected_nodes(self) -> list[str]:
+        """
+        Find and return nodes that are not connected to any other nodes in the graph.
+
+        Returns:
+        --------
+
+            - list[str]: A list of IDs of disconnected nodes.
+        """
+        query = f"""
+            MATCH(n :{self._GRAPH_NODE_LABEL})
+            WHERE NOT (n)--()
+            RETURN COLLECT(ID(n)) as ids
+        """
+
+        results = await self.query(query)
+        return results[0]["ids"] if len(results) > 0 else []
+
+
     async def get_neighbors(self, node_id: str) -> List[NodeData]:
         """
         Get all neighboring nodes connected to the specified node.
