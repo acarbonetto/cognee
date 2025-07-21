@@ -126,7 +126,7 @@ class NeptuneGraphDB(GraphDBInterface):
             raise NeptuneAnalyticsConfigurationError(f"Failed to initialize Neptune Analytics client: {format_neptune_error(e)}")
 
     @staticmethod
-    def serialize_properties(properties: Dict[str, Any]) -> Dict[str, Any]:
+    def _serialize_properties(properties: Dict[str, Any]) -> Dict[str, Any]:
         """
         Serialize properties for Neptune Analytics storage.
         Parameters:
@@ -143,7 +143,7 @@ class NeptuneGraphDB(GraphDBInterface):
                 serialized_properties[property_key] = str(property_value)
                 continue
 
-            if isinstance(property_value, dict):
+            if isinstance(property_value, dict) or isinstance(property_value, list):
                 serialized_properties[property_key] = json.dumps(property_value, cls=JSONEncoder)
                 continue
 
@@ -490,7 +490,7 @@ class NeptuneGraphDB(GraphDBInterface):
 
             # Prepare edge properties
             edge_props = properties or {}
-            serialized_properties = self.serialize_properties(edge_props)
+            serialized_properties = self._serialize_properties(edge_props)
 
             query = f"""
             MATCH (source:{self._GRAPH_NODE_LABEL})
@@ -560,7 +560,7 @@ class NeptuneGraphDB(GraphDBInterface):
                             "from_node": str(edge[0]),
                             "to_node": str(edge[1]),
                             "relationship_name": relationship_name,
-                            "properties": self.serialize_properties(edge[3] if len(edge) > 3 and edge[3] else {}),
+                            "properties": self._serialize_properties(edge[3] if len(edge) > 3 and edge[3] else {}),
                         }
                         for edge in edges_by_relationship
                     ]
