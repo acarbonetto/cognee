@@ -837,6 +837,44 @@ class NeptuneGraphDB(GraphDBInterface):
         results = await self.query(query)
         return results[0]["ids"] if len(results) > 0 else []
 
+    async def get_predecessors(self, node_id: str, edge_label: str = None) -> list[str]:
+        """
+        Retrieve the predecessor nodes of a specified node based on an optional edge label.
+
+        Parameters:
+        -----------
+
+            - node_id (str): The ID of the node whose predecessors are to be retrieved.
+            - edge_label (str): Optional edge label to filter predecessors. (default None)
+
+        Returns:
+        --------
+
+            - list[str]: A list of predecessor node IDs.
+        """
+        if edge_label is not None:
+            query = f"""
+            MATCH (node)<-[r :{edge_label}]-(predecessor)
+            WHERE node.id = $node_id
+            RETURN predecessor
+            """
+        else:
+            query = """
+            MATCH (node)<-[r]-(predecessor)
+            WHERE node.id = $node_id
+            RETURN predecessor
+            """
+
+        results = await self.query(
+            query,
+            dict(
+                node_id=node_id,
+            ),
+        )
+
+        return [result["predecessor"] for result in results]
+
+
 
     async def get_neighbors(self, node_id: str) -> List[NodeData]:
         """

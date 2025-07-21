@@ -242,6 +242,14 @@ async def misc_methods():
     print(nodes_disconnected)
     assert len(nodes_disconnected) == 0
 
+    print("------GET PREDECESSORS-------")
+    nodes_predecessors = await na_adapter.get_predecessors(
+        node_id="dummy_node_id", edge_label="test_label"
+    )
+    print(nodes_predecessors)
+    assert len(nodes_predecessors) == 0
+
+
 
     pass
 
