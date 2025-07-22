@@ -1212,6 +1212,27 @@ class NeptuneGraphDB(GraphDBInterface):
         """
         pass
 
+    async def graph_exists(self, graph_name="myGraph"):
+        """
+        Check if a graph with a given name exists in the database.
+
+        Note: This method is currently a placeholder because GDS (Graph Data Science)
+        projection is not supported in Neptune Analytics.
+
+        Parameters:
+        -----------
+
+            - graph_name: The name of the graph to check for existence, defaults to 'myGraph'.
+              (default 'myGraph')
+
+        Returns:
+        --------
+
+            True if the graph exists, otherwise False.
+        """
+        pass
+
+
     async def project_entire_graph(self, graph_name="myGraph"):
         """
         Project all node labels and relationship types into an in-memory graph using GDS.
