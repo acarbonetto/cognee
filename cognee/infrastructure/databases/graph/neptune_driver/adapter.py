@@ -126,7 +126,7 @@ class NeptuneGraphDB(GraphDBInterface):
             raise NeptuneAnalyticsConfigurationError(f"Failed to initialize Neptune Analytics client: {format_neptune_error(e)}")
 
     @staticmethod
-    def _serialize_properties(properties: Dict[str, Any]) -> Dict[str, Any]:
+    def serialize_properties(properties: Dict[str, Any]) -> Dict[str, Any]:
         """
         Serialize properties for Neptune Analytics storage.
         Parameters:
@@ -143,7 +143,7 @@ class NeptuneGraphDB(GraphDBInterface):
                 serialized_properties[property_key] = str(property_value)
                 continue
 
-            if isinstance(property_value, dict) or isinstance(property_value, list):
+            if isinstance(property_value, dict):
                 serialized_properties[property_key] = json.dumps(property_value, cls=JSONEncoder)
                 continue
 
@@ -490,7 +490,7 @@ class NeptuneGraphDB(GraphDBInterface):
 
             # Prepare edge properties
             edge_props = properties or {}
-            serialized_properties = self._serialize_properties(edge_props)
+            serialized_properties = self.serialize_properties(edge_props)
 
             query = f"""
             MATCH (source:{self._GRAPH_NODE_LABEL})
@@ -560,7 +560,7 @@ class NeptuneGraphDB(GraphDBInterface):
                             "from_node": str(edge[0]),
                             "to_node": str(edge[1]),
                             "relationship_name": relationship_name,
-                            "properties": self._serialize_properties(edge[3] if len(edge) > 3 and edge[3] else {}),
+                            "properties": self.serialize_properties(edge[3] if len(edge) > 3 and edge[3] else {}),
                         }
                         for edge in edges_by_relationship
                     ]
@@ -819,6 +819,100 @@ class NeptuneGraphDB(GraphDBInterface):
             logger.error(f"Failed to get edges for node {node_id}: {error_msg}")
             raise Exception(f"Failed to get edges: {error_msg}")
 
+    async def get_disconnected_nodes(self) -> list[str]:
+        """
+        Find and return nodes that are not connected to any other nodes in the graph.
+
+        Returns:
+        --------
+
+            - list[str]: A list of IDs of disconnected nodes.
+        """
+        query = f"""
+            MATCH(n :{self._GRAPH_NODE_LABEL})
+            WHERE NOT (n)--()
+            RETURN COLLECT(ID(n)) as ids
+        """
+
+        results = await self.query(query)
+        return results[0]["ids"] if len(results) > 0 else []
+
+    async def get_predecessors(self, node_id: str, edge_label: str = None) -> list[str]:
+        """
+        Retrieve the predecessor nodes of a specified node based on an optional edge label.
+
+        Parameters:
+        -----------
+
+            - node_id (str): The ID of the node whose predecessors are to be retrieved.
+            - edge_label (str): Optional edge label to filter predecessors. (default None)
+
+        Returns:
+        --------
+
+            - list[str]: A list of predecessor node IDs.
+        """
+        if edge_label is not None:
+            query = f"""
+            MATCH (node)<-[r :{edge_label}]-(predecessor)
+            WHERE node.id = $node_id
+            RETURN predecessor
+            """
+        else:
+            query = """
+            MATCH (node)<-[r]-(predecessor)
+            WHERE node.id = $node_id
+            RETURN predecessor
+            """
+
+        results = await self.query(
+            query,
+            dict(
+                node_id=node_id,
+            ),
+        )
+
+        return [result["predecessor"] for result in results]
+
+    async def get_successors(self, node_id: str, edge_label: str = None) -> list[str]:
+        """
+        Retrieve the successor nodes of a specified node based on an optional edge label.
+
+        Parameters:
+        -----------
+
+            - node_id (str): The ID of the node whose successors are to be retrieved.
+            - edge_label (str): Optional edge label to filter successors. (default None)
+
+        Returns:
+        --------
+
+            - list[str]: A list of successor node IDs.
+        """
+
+        if edge_label is not None:
+            query = f"""
+            MATCH (node)-[r :{edge_label}]->(successor)
+            WHERE node.id = $node_id
+            RETURN successor
+            """
+        else:
+            query = """
+            MATCH (node)-[r]->(successor)
+            WHERE node.id = $node_id
+            RETURN successor
+            """
+
+        results = await self.query(
+            query,
+            dict(
+                node_id=node_id,
+            ),
+        )
+
+        return [result["successor"] for result in results]
+
+
     async def get_neighbors(self, node_id: str) -> List[NodeData]:
         """
         Get all neighboring nodes connected to the specified node.
@@ -995,6 +1089,298 @@ class NeptuneGraphDB(GraphDBInterface):
             error_msg = format_neptune_error(e)
             logger.error(f"Failed to get connections for node {node_id}: {error_msg}")
             raise Exception(f"Failed to get connections: {error_msg}")
+
+
+    async def remove_connection_to_predecessors_of(
+        self, node_ids: list[str], edge_label: str
+    ) -> None:
+        """
+        Remove connections (edges) to all predecessors of specified nodes based on edge label.
+
+        Parameters:
+        -----------
+
+            - node_ids (list[str]): A list of IDs of nodes from which connections are to be
+              removed.
+            - edge_label (str): The label of the edges to remove.
+
+        Returns:
+        --------
+
+            - None: None
+        """
+        query = f"""
+        UNWIND $node_ids AS node_id
+        MATCH ({{`~id`: node_id}})-[r:{edge_label}]->(predecessor)
+        DELETE r;
+        """
+        params = {"node_ids": node_ids}
+        await self.query(query, params)
+
+
+    async def remove_connection_to_successors_of(
+        self, node_ids: list[str], edge_label: str
+    ) -> None:
+        """
+        Remove connections (edges) to all successors of specified nodes based on edge label.
+
+        Parameters:
+        -----------
+
+            - node_ids (list[str]): A list of IDs of nodes from which connections are to be
+              removed.
+            - edge_label (str): The label of the edges to remove.
+
+        Returns:
+        --------
+
+            - None: None
+        """
+        query = f"""
+        UNWIND $node_ids AS node_id
+        MATCH ({{`~id`: node_id}})<-[r:{edge_label}]-(successor)
+        DELETE r;
+        """
+        params = {"node_ids": node_ids}
+        await self.query(query, params)
+
+
+    async def get_node_labels_string(self):
+        """
+        Fetch all node labels from the database and return them as a formatted string.
+
+        Returns:
+        --------
+
+            A formatted string of node labels.
+        """
+        node_labels_query = "CALL neptune.graph.pg_schema() YIELD schema RETURN schema.nodeLabels as labels "
+        node_labels_result = await self.query(node_labels_query)
+        node_labels = node_labels_result[0]["labels"] if node_labels_result else []
+
+        if not node_labels:
+            raise ValueError("No node labels found in the database")
+
+        return str(node_labels)
+
+    async def get_relationship_labels_string(self):
+        """
+        Fetch all relationship types from the database and return them as a formatted string.
+
+        Returns:
+        --------
+
+            A formatted string of relationship types.
+        """
+        relationship_types_query = "CALL neptune.graph.pg_schema() YIELD schema RETURN schema.edgeLabels as relationships "
+        relationship_types_result = await self.query(relationship_types_query)
+        relationship_types = (
+            relationship_types_result[0]["relationships"] if relationship_types_result else []
+        )
+
+        if not relationship_types:
+            raise ValueError("No relationship types found in the database.")
+
+        relationship_types_undirected_str = (
+            "{"
+            + ", ".join(f"{rel}" + ": {orientation: 'UNDIRECTED'}" for rel in relationship_types)
+            + "}"
+        )
+        return relationship_types_undirected_str
+
+    async def project_entire_graph(self, graph_name="myGraph"):
+        """
+        Project all node labels and relationship types into an in-memory graph using GDS.
+
+        Note: This method is currently a placeholder because GDS (Graph Data Science)
+        projection is not supported in Neptune Analytics.
+        """
+        pass
+
+    async def drop_graph(self, graph_name="myGraph"):
+        """
+        Drop an existing graph from the database based on its name.
+
+        Note: This method is currently a placeholder because GDS (Graph Data Science)
+        projection is not supported in Neptune Analytics.
+
+        Parameters:
+        -----------
+
+            - graph_name: The name of the graph to drop, defaults to 'myGraph'. (default
+              'myGraph')
+        """
+        pass
+
+    async def graph_exists(self, graph_name="myGraph"):
+        """
+        Check if a graph with a given name exists in the database.
+
+        Note: This method is currently a placeholder because GDS (Graph Data Science)
+        projection is not supported in Neptune Analytics.
+
+        Parameters:
+        -----------
+
+            - graph_name: The name of the graph to check for existence, defaults to 'myGraph'.
+              (default 'myGraph')
+
+        Returns:
+        --------
+
+            True if the graph exists, otherwise False.
+        """
+        pass
+
+
+    async def project_entire_graph(self, graph_name="myGraph"):
+        """
+        Project all node labels and relationship types into an in-memory graph using GDS.
+
+        Note: This method is currently a placeholder because GDS (Graph Data Science)
+        projection is not supported in Neptune Anlaytics.
+        """
+        pass
+
+    async def get_filtered_graph_data(self, attribute_filters: list[dict[str, list]]):
+        """
+        Fetch nodes and edges filtered by specific attribute criteria.
+
+        Parameters:
+        -----------
+
+            - attribute_filters: A list of dictionaries representing attributes and associated
+              values for filtering.
+
+        Returns:
+        --------
+
+            A tuple containing filtered nodes and edges based on the specified criteria.
+        """
+        where_clauses = []
+        for attribute, values in attribute_filters[0].items():
+            values_str = ", ".join(
+                f"'{value}'" if isinstance(value, str) else str(value) for value in values
+            )
+            where_clauses.append(f"n.{attribute} IN [{values_str}]")
+
+        where_clause = " AND ".join(where_clauses)
+
+        query_nodes = f"""
+           MATCH (n :{self._GRAPH_NODE_LABEL})
+           WHERE {where_clause}
+           RETURN ID(n) AS id, labels(n) AS labels, properties(n) AS properties
+           """
+        result_nodes = await self.query(query_nodes)
+
+        nodes = [
+            (
+                record["id"],
+                record["properties"],
+            )
+            for record in result_nodes
+        ]
+
+        query_edges = f"""
+           MATCH (n :{self._GRAPH_NODE_LABEL})-[r]->(m :{self._GRAPH_NODE_LABEL})
+           WHERE {where_clause} AND {where_clause.replace("n.", "m.")}
+           RETURN ID(n) AS source, ID(m) AS target, TYPE(r) AS type, properties(r) AS properties
+           """
+        result_edges = await self.query(query_edges)
+
+        edges = [
+            (
+                record["source"],
+                record["target"],
+                record["type"],
+                record["properties"],
+            )
+            for record in result_edges
+        ]
+
+        return (nodes, edges)
+
+
+    async def get_degree_one_nodes(self, node_type: str):
+        """
+        Fetch nodes of a specified type that have exactly one connection.
+
+        Parameters:
+        -----------
+
+            - node_type (str): The type of nodes to retrieve, must be 'Entity' or 'EntityType'.
+
+        Returns:
+        --------
+
+            A list of nodes with exactly one connection of the specified type.
+        """
+        if not node_type or node_type not in ["Entity", "EntityType"]:
+            raise ValueError("node_type must be either 'Entity' or 'EntityType'")
+
+        query = f"""
+                MATCH (n :{self._GRAPH_NODE_LABEL})
+                WHERE size((n)--()) = 1 
+                AND n.type = $node_type
+                RETURN n
+                """
+        result = await self.query(query, {"node_type": node_type})
+        return [record["n"] for record in result] if result else []
+
+    async def get_document_subgraph(self, content_hash: str):
+        """
+        Retrieve a subgraph related to a document identified by its content hash, including
+        related entities and chunks.
+
+        Parameters:
+        -----------
+
+            - content_hash (str): The hash identifying the document whose subgraph should be
+              retrieved.
+
+        Returns:
+        --------
+
+            The subgraph data as a dictionary, or None if not found.
+        """
+        query = f"""
+
+        MATCH (doc)
+        WHERE (doc:{self._GRAPH_NODE_LABEL})
+        AND doc.type in ['TextDocument', 'PdfDocument']
+        AND doc.name = 'text_' + $content_hash
+
+        OPTIONAL MATCH (doc)<-[:is_part_of]-(chunk {{type: 'DocumentChunk'}})
+        
+        // Alternative to WHERE NOT EXISTS
+        OPTIONAL MATCH (chunk)-[:contains]->(entity {{type: 'Entity'}})
+        OPTIONAL MATCH (entity)<-[:contains]-(otherChunk {{type: 'DocumentChunk'}})-[:is_part_of]->(otherDoc)
+          WHERE otherDoc.type in ['TextDocument', 'PdfDocument']
+          AND otherDoc.id <> doc.id
+                OPTIONAL MATCH (chunk)<-[:made_from]-(made_node {{type: 'TextSummary'}})
+
+        OPTIONAL MATCH (chunk)<-[:made_from]-(made_node {{type: 'TextSummary'}})
+
+        // Alternative to WHERE NOT EXISTS
+        OPTIONAL MATCH (entity)-[:is_a]->(type {{type: 'EntityType'}})
+        OPTIONAL MATCH (type)<-[:is_a]-(otherEntity {{type: 'Entity'}})<-[:contains]-(otherChunk {{type: 'DocumentChunk'}})-[:is_part_of]->(otherDoc)
+          WHERE otherDoc.type in ['TextDocument', 'PdfDocument']
+          AND otherDoc.id <> doc.id
+        
+        // Alternative to WHERE NOT EXISTS
+        WITH doc, entity, chunk, made_node, type, otherDoc
+        WHERE otherDoc IS NULL
+
+        RETURN
+            collect(DISTINCT doc) as document,
+            collect(DISTINCT chunk) as chunks,
+            collect(DISTINCT entity) as orphan_entities,
+            collect(DISTINCT made_node) as made_from_nodes,
+            collect(DISTINCT type) as orphan_types
+        """
+        result = await self.query(query, {"content_hash": content_hash})
+        return result[0] if result else None
+
 
 
     async def _get_model_independent_graph_data(self):
