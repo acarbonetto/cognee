@@ -275,6 +275,15 @@ async def misc_methods():
     print(edge_labels)
 
 
+    print("------Get Filtered Graph-------")
+    filtered_nodes, filtered_edges = await na_adapter.get_filtered_graph_data([{'name': ['text.txt']}])
+    print(filtered_nodes, filtered_edges)
+
+
+    # no-op
+    await na_adapter.project_entire_graph()
+
+
     pass
 
 

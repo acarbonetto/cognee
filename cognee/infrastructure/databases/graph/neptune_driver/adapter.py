@@ -1197,6 +1197,64 @@ class NeptuneGraphDB(GraphDBInterface):
         """
         pass
 
+    async def get_filtered_graph_data(self, attribute_filters: list[dict[str, list]]):
+        """
+        Fetch nodes and edges filtered by specific attribute criteria.
+
+        Parameters:
+        -----------
+
+            - attribute_filters: A list of dictionaries representing attributes and associated
+              values for filtering.
+
+        Returns:
+        --------
+
+            A tuple containing filtered nodes and edges based on the specified criteria.
+        """
+        where_clauses = []
+        for attribute, values in attribute_filters[0].items():
+            values_str = ", ".join(
+                f"'{value}'" if isinstance(value, str) else str(value) for value in values
+            )
+            where_clauses.append(f"n.{attribute} IN [{values_str}]")
+
+        where_clause = " AND ".join(where_clauses)
+
+        query_nodes = f"""
+           MATCH (n :{self._GRAPH_NODE_LABEL})
+           WHERE {where_clause}
+           RETURN ID(n) AS id, labels(n) AS labels, properties(n) AS properties
+           """
+        result_nodes = await self.query(query_nodes)
+
+        nodes = [
+            (
+                record["id"],
+                record["properties"],
+            )
+            for record in result_nodes
+        ]
+
+        query_edges = f"""
+           MATCH (n :{self._GRAPH_NODE_LABEL})-[r]->(m :{self._GRAPH_NODE_LABEL})
+           WHERE {where_clause} AND {where_clause.replace("n.", "m.")}
+           RETURN ID(n) AS source, ID(m) AS target, TYPE(r) AS type, properties(r) AS properties
+           """
+        result_edges = await self.query(query_edges)
+
+        edges = [
+            (
+                record["source"],
+                record["target"],
+                record["type"],
+                record["properties"],
+            )
+            for record in result_edges
+        ]
+
+        return (nodes, edges)
+
     async def _get_model_independent_graph_data(self):
         """
         Retrieve the basic graph data without considering the model specifics, returning nodes
