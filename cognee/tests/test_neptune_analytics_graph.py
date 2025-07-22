@@ -289,6 +289,7 @@ async def misc_methods():
 
     # no-op
     await na_adapter.project_entire_graph()
+    await na_adapter.drop_graph()
 
 
     pass

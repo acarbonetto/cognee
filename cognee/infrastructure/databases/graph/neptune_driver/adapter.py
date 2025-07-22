@@ -1193,6 +1193,30 @@ class NeptuneGraphDB(GraphDBInterface):
         Project all node labels and relationship types into an in-memory graph using GDS.
 
         Note: This method is currently a placeholder because GDS (Graph Data Science)
+        projection is not supported in Neptune Analytics.
+        """
+        pass
+
+    async def drop_graph(self, graph_name="myGraph"):
+        """
+        Drop an existing graph from the database based on its name.
+
+        Note: This method is currently a placeholder because GDS (Graph Data Science)
+        projection is not supported in Neptune Analytics.
+
+        Parameters:
+        -----------
+
+            - graph_name: The name of the graph to drop, defaults to 'myGraph'. (default
+              'myGraph')
+        """
+        pass
+
+    async def project_entire_graph(self, graph_name="myGraph"):
+        """
+        Project all node labels and relationship types into an in-memory graph using GDS.
+
+        Note: This method is currently a placeholder because GDS (Graph Data Science)
         projection is not supported in Neptune Anlaytics.
         """
         pass
