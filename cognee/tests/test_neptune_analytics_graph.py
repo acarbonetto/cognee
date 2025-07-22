@@ -297,7 +297,7 @@ async def misc_methods():
 
 
 if __name__ == "__main__":
-    # asyncio.run(main())
+    asyncio.run(main())
     asyncio.run(misc_methods())
 
 
