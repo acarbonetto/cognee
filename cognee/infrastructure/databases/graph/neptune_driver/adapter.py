@@ -1282,6 +1282,61 @@ class NeptuneGraphDB(GraphDBInterface):
         result = await self.query(query, {"node_type": node_type})
         return [record["n"] for record in result] if result else []
 
+    async def get_document_subgraph(self, content_hash: str):
+        """
+        Retrieve a subgraph related to a document identified by its content hash, including
+        related entities and chunks.
+
+        Parameters:
+        -----------
+
+            - content_hash (str): The hash identifying the document whose subgraph should be
+              retrieved.
+
+        Returns:
+        --------
+
+            The subgraph data as a dictionary, or None if not found.
+        """
+        query = f"""
+
+        MATCH (doc)
+        WHERE (doc:{self._GRAPH_NODE_LABEL})
+        AND doc.type in ['TextDocument', 'PdfDocument']
+        AND doc.name = 'text_' + $content_hash
+
+        OPTIONAL MATCH (doc)<-[:is_part_of]-(chunk {{type: 'DocumentChunk'}})
+        
+        // Alternative to WHERE NOT EXISTS
+        OPTIONAL MATCH (chunk)-[:contains]->(entity {{type: 'Entity'}})
+        OPTIONAL MATCH (entity)<-[:contains]-(otherChunk {{type: 'DocumentChunk'}})-[:is_part_of]->(otherDoc)
+          WHERE otherDoc.type in ['TextDocument', 'PdfDocument']
+          AND otherDoc.id <> doc.id
+                OPTIONAL MATCH (chunk)<-[:made_from]-(made_node {{type: 'TextSummary'}})
+
+        OPTIONAL MATCH (chunk)<-[:made_from]-(made_node {{type: 'TextSummary'}})
+
+        // Alternative to WHERE NOT EXISTS
+        OPTIONAL MATCH (entity)-[:is_a]->(type {{type: 'EntityType'}})
+        OPTIONAL MATCH (type)<-[:is_a]-(otherEntity {{type: 'Entity'}})<-[:contains]-(otherChunk {{type: 'DocumentChunk'}})-[:is_part_of]->(otherDoc)
+          WHERE otherDoc.type in ['TextDocument', 'PdfDocument']
+          AND otherDoc.id <> doc.id
+        
+        // Alternative to WHERE NOT EXISTS
+        WITH doc, entity, chunk, made_node, type, otherDoc
+        WHERE otherDoc IS NULL
+
+        RETURN
+            collect(DISTINCT doc) as document,
+            collect(DISTINCT chunk) as chunks,
+            collect(DISTINCT entity) as orphan_entities,
+            collect(DISTINCT made_node) as made_from_nodes,
+            collect(DISTINCT type) as orphan_types
+        """
+        result = await self.query(query, {"content_hash": content_hash})
+        return result[0] if result else None
+
+
 
     async def _get_model_independent_graph_data(self):
         """

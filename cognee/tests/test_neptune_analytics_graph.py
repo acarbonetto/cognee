@@ -23,8 +23,8 @@ def setup():
     #     stored in Amazon S3.
 
     document = TextDocument(
-        name='text.txt',
-        raw_data_location='git/cognee/examples/database_examples/data_storage/data/text.txt',
+        name='text_test.txt',
+        raw_data_location='git/cognee/examples/database_examples/data_storage/data/text_test.txt',
         external_metadata='{}',
         mime_type='text/plain'
     )
@@ -274,15 +274,17 @@ async def misc_methods():
     edge_labels = await na_adapter.get_relationship_labels_string()
     print(edge_labels)
 
-
     print("------Get Filtered Graph-------")
-    filtered_nodes, filtered_edges = await na_adapter.get_filtered_graph_data([{'name': ['text.txt']}])
+    filtered_nodes, filtered_edges = await na_adapter.get_filtered_graph_data([{'name': ['text_test.txt']}])
     print(filtered_nodes, filtered_edges)
-
 
     print("------Get Degree one nodes-------")
     degree_one_nodes = await na_adapter.get_degree_one_nodes("EntityType")
     print(degree_one_nodes)
+
+    print("------Get Doc sub-graph-------")
+    doc_sub_graph = await na_adapter.get_document_subgraph('test.txt')
+    print(doc_sub_graph)
 
 
     # no-op
