@@ -280,6 +280,11 @@ async def misc_methods():
     print(filtered_nodes, filtered_edges)
 
 
+    print("------Get Degree one nodes-------")
+    degree_one_nodes = await na_adapter.get_degree_one_nodes("EntityType")
+    print(degree_one_nodes)
+
+
     # no-op
     await na_adapter.project_entire_graph()
 

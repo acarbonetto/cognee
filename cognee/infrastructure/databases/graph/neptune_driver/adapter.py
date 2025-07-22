@@ -1255,6 +1255,34 @@ class NeptuneGraphDB(GraphDBInterface):
 
         return (nodes, edges)
 
+
+    async def get_degree_one_nodes(self, node_type: str):
+        """
+        Fetch nodes of a specified type that have exactly one connection.
+
+        Parameters:
+        -----------
+
+            - node_type (str): The type of nodes to retrieve, must be 'Entity' or 'EntityType'.
+
+        Returns:
+        --------
+
+            A list of nodes with exactly one connection of the specified type.
+        """
+        if not node_type or node_type not in ["Entity", "EntityType"]:
+            raise ValueError("node_type must be either 'Entity' or 'EntityType'")
+
+        query = f"""
+                MATCH (n :{self._GRAPH_NODE_LABEL})
+                WHERE size((n)--()) = 1 
+                AND n.type = $node_type
+                RETURN n
+                """
+        result = await self.query(query, {"node_type": node_type})
+        return [record["n"] for record in result] if result else []
+
+
     async def _get_model_independent_graph_data(self):
         """
         Retrieve the basic graph data without considering the model specifics, returning nodes

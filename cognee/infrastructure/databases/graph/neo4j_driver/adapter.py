@@ -1190,7 +1190,7 @@ class Neo4jAdapter(GraphDBInterface):
         result = await self.query(query, {"content_hash": content_hash})
         return result[0] if result else None
 
-    async def get_degree_one_nodes(self, node_type: str):
+    async def get_degree_one_nodes(self, node_type: str) -> list:
         """
         Fetch nodes of a specified type that have exactly one connection.
 
