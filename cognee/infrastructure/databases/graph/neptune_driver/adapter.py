@@ -126,7 +126,7 @@ class NeptuneGraphDB(GraphDBInterface):
             raise NeptuneAnalyticsConfigurationError(f"Failed to initialize Neptune Analytics client: {format_neptune_error(e)}")
 
     @staticmethod
-    def serialize_properties(properties: Dict[str, Any]) -> Dict[str, Any]:
+    def _serialize_properties(properties: Dict[str, Any]) -> Dict[str, Any]:
         """
         Serialize properties for Neptune Analytics storage.
         Parameters:
@@ -143,7 +143,7 @@ class NeptuneGraphDB(GraphDBInterface):
                 serialized_properties[property_key] = str(property_value)
                 continue
 
-            if isinstance(property_value, dict):
+            if isinstance(property_value, dict) or isinstance(property_value, list):
                 serialized_properties[property_key] = json.dumps(property_value, cls=JSONEncoder)
                 continue
 
@@ -196,7 +196,7 @@ class NeptuneGraphDB(GraphDBInterface):
         """
         try:
             # Prepare node properties with the ID and graph type
-            serialized_properties = self.serialize_properties(node.model_dump())
+            serialized_properties = self._serialize_properties(node.model_dump())
 
             query = f"""
             MERGE (n:{self._GRAPH_NODE_LABEL} {{`~id`: $node_id}})
@@ -246,7 +246,7 @@ class NeptuneGraphDB(GraphDBInterface):
                 "nodes": [
                     {
                         "node_id": str(node.id),
-                        "properties": self.serialize_properties(node.model_dump()),
+                        "properties": self._serialize_properties(node.model_dump()),
                     }
                     for node in nodes
                 ]
@@ -490,7 +490,7 @@ class NeptuneGraphDB(GraphDBInterface):
 
             # Prepare edge properties
             edge_props = properties or {}
-            serialized_properties = self.serialize_properties(edge_props)
+            serialized_properties = self._serialize_properties(edge_props)
 
             query = f"""
             MATCH (source:{self._GRAPH_NODE_LABEL})
@@ -560,7 +560,7 @@ class NeptuneGraphDB(GraphDBInterface):
                             "from_node": str(edge[0]),
                             "to_node": str(edge[1]),
                             "relationship_name": relationship_name,
-                            "properties": self.serialize_properties(edge[3] if len(edge) > 3 and edge[3] else {}),
+                            "properties": self._serialize_properties(edge[3] if len(edge) > 3 and edge[3] else {}),
                         }
                         for edge in edges_by_relationship
                     ]
@@ -837,7 +837,7 @@ class NeptuneGraphDB(GraphDBInterface):
         results = await self.query(query)
         return results[0]["ids"] if len(results) > 0 else []
 
-    async def get_predecessors(self, node_id: str, edge_label: str = None) -> list[str]:
+    async def get_predecessors(self, node_id: str, edge_label: str = "") -> list[str]:
         """
         Retrieve the predecessor nodes of a specified node based on an optional edge label.
 
@@ -852,29 +852,22 @@ class NeptuneGraphDB(GraphDBInterface):
 
             - list[str]: A list of predecessor node IDs.
         """
-        if edge_label is not None:
-            query = f"""
-            MATCH (node)<-[r :{edge_label}]-(predecessor)
-            WHERE node.id = $node_id
-            RETURN predecessor
-            """
-        else:
-            query = """
-            MATCH (node)<-[r]-(predecessor)
-            WHERE node.id = $node_id
-            RETURN predecessor
-            """
+
+        edge_label = f" :{edge_label}" if edge_label is not None else ""
+        query = f"""
+        MATCH (node)<-[r{edge_label}]-(predecessor)
+        WHERE node.id = $node_id
+        RETURN predecessor
+        """
 
         results = await self.query(
             query,
-            dict(
-                node_id=node_id,
-            ),
+            {"node_id": node_id}
         )
 
         return [result["predecessor"] for result in results]
 
-    async def get_successors(self, node_id: str, edge_label: str = None) -> list[str]:
+    async def get_successors(self, node_id: str, edge_label: str = "") -> list[str]:
         """
         Retrieve the successor nodes of a specified node based on an optional edge label.
 
@@ -890,24 +883,16 @@ class NeptuneGraphDB(GraphDBInterface):
             - list[str]: A list of successor node IDs.
         """
 
-        if edge_label is not None:
-            query = f"""
-            MATCH (node)-[r :{edge_label}]->(successor)
-            WHERE node.id = $node_id
-            RETURN successor
-            """
-        else:
-            query = """
-            MATCH (node)-[r]->(successor)
-            WHERE node.id = $node_id
-            RETURN successor
-            """
+        edge_label = f" :{edge_label}" if edge_label is not None else ""
+        query = f"""
+        MATCH (node)-[r {edge_label}]->(successor)
+        WHERE node.id = $node_id
+        RETURN successor
+        """
 
         results = await self.query(
             query,
-            dict(
-                node_id=node_id,
-            ),
+            {"node_id": node_id}
         )
 
         return [result["successor"] for result in results]
@@ -1093,7 +1078,7 @@ class NeptuneGraphDB(GraphDBInterface):
 
     async def remove_connection_to_predecessors_of(
         self, node_ids: list[str], edge_label: str
-    ) -> None:
+    ):
         """
         Remove connections (edges) to all predecessors of specified nodes based on edge label.
 
@@ -1104,10 +1089,6 @@ class NeptuneGraphDB(GraphDBInterface):
               removed.
             - edge_label (str): The label of the edges to remove.
 
-        Returns:
-        --------
-
-            - None: None
         """
         query = f"""
         UNWIND $node_ids AS node_id
@@ -1120,7 +1101,7 @@ class NeptuneGraphDB(GraphDBInterface):
 
     async def remove_connection_to_successors_of(
         self, node_ids: list[str], edge_label: str
-    ) -> None:
+    ):
         """
         Remove connections (edges) to all successors of specified nodes based on edge label.
 
@@ -1131,10 +1112,6 @@ class NeptuneGraphDB(GraphDBInterface):
               removed.
             - edge_label (str): The label of the edges to remove.
 
-        Returns:
-        --------
-
-            - None: None
         """
         query = f"""
         UNWIND $node_ids AS node_id
@@ -1153,6 +1130,10 @@ class NeptuneGraphDB(GraphDBInterface):
         --------
 
             A formatted string of node labels.
+
+        Raises:
+        -------
+            ValueError: If no node labels are found in the database.
         """
         node_labels_query = "CALL neptune.graph.pg_schema() YIELD schema RETURN schema.nodeLabels as labels "
         node_labels_result = await self.query(node_labels_query)
@@ -1257,18 +1238,22 @@ class NeptuneGraphDB(GraphDBInterface):
 
             A tuple containing filtered nodes and edges based on the specified criteria.
         """
-        where_clauses = []
+        where_clauses_n = []
+        where_clauses_m = []
         for attribute, values in attribute_filters[0].items():
             values_str = ", ".join(
                 f"'{value}'" if isinstance(value, str) else str(value) for value in values
             )
-            where_clauses.append(f"n.{attribute} IN [{values_str}]")
+            where_clauses_n.append(f"n.{attribute} IN [{values_str}]")
+            where_clauses_m.append(f"m.{attribute} IN [{values_str}]")
 
-        where_clause = " AND ".join(where_clauses)
+        node_where_clauses_n_str = " AND ".join(where_clauses_n)
+        node_where_clauses_m_str = " AND ".join(where_clauses_m)
+        edge_where_clause = f"{node_where_clauses_n_str} AND {node_where_clauses_m_str}"
 
         query_nodes = f"""
            MATCH (n :{self._GRAPH_NODE_LABEL})
-           WHERE {where_clause}
+           WHERE {node_where_clauses_n_str}
            RETURN ID(n) AS id, labels(n) AS labels, properties(n) AS properties
            """
         result_nodes = await self.query(query_nodes)
@@ -1283,7 +1268,7 @@ class NeptuneGraphDB(GraphDBInterface):
 
         query_edges = f"""
            MATCH (n :{self._GRAPH_NODE_LABEL})-[r]->(m :{self._GRAPH_NODE_LABEL})
-           WHERE {where_clause} AND {where_clause.replace("n.", "m.")}
+           WHERE {edge_where_clause}
            RETURN ID(n) AS source, ID(m) AS target, TYPE(r) AS type, properties(r) AS properties
            """
         result_edges = await self.query(query_edges)

@@ -104,7 +104,7 @@ def setup():
     return nodes_data, edges_data
 
 
-async def main():
+async def pipeline_method():
     """
     Example script using the neptune analytics with small sample data
 
@@ -244,30 +244,6 @@ async def misc_methods():
     print(nodes_disconnected)
     assert len(nodes_disconnected) == 0
 
-    print("------GET PREDECESSORS-------")
-    nodes_predecessors = await na_adapter.get_predecessors(
-        node_id="dummy_node_id", edge_label="test_label"
-    )
-    print(nodes_predecessors)
-    assert len(nodes_predecessors) == 0
-
-    print("------GET SUCCESSORS-------")
-    nodes_successors = await na_adapter.get_successors(
-        node_id="dummy_node_id", edge_label="test_label"
-    )
-    print(nodes_successors)
-    assert len(nodes_successors) == 0
-
-    print("------Remove connection (Predecessors)-------")
-    await na_adapter.remove_connection_to_predecessors_of(
-        node_ids=["dummy_node_id"], edge_label="test_label"
-    )
-
-    print("------Remove connection (Successors)-------")
-    await na_adapter.remove_connection_to_successors_of(
-        node_ids=["dummy_node_id"], edge_label="test_label"
-    )
-
     print("------Get Labels (Node)-------")
     node_labels = await na_adapter.get_node_labels_string()
     print(node_labels)
@@ -288,6 +264,42 @@ async def misc_methods():
     doc_sub_graph = await na_adapter.get_document_subgraph('test.txt')
     print(doc_sub_graph)
 
+    print("------Fetch and Remove connections (Predecessors)-------")
+    # Fetch test edge
+    (src_id, dest_id, relationship) = edges[0]
+    nodes_predecessors = await na_adapter.get_predecessors(
+        node_id=dest_id, edge_label=relationship
+    )
+    assert len(nodes_predecessors) > 0
+
+    await na_adapter.remove_connection_to_predecessors_of(
+        node_ids=[src_id], edge_label=relationship
+    )
+    nodes_predecessors_after = await na_adapter.get_predecessors(
+        node_id=dest_id, edge_label=relationship
+    )
+    # Return empty after relationship being deleted.
+    assert len(nodes_predecessors_after) == 0
+
+
+    print("------Fetch and Remove connections (Successors)-------")
+    _, edges_suc = await na_adapter.get_graph_data()
+    (src_id, dest_id, relationship, _) = edges_suc[0]
+
+    nodes_successors = await na_adapter.get_successors(
+        node_id=src_id, edge_label=relationship
+    )
+    assert len(nodes_successors) > 0
+
+    await na_adapter.remove_connection_to_successors_of(
+        node_ids=[dest_id], edge_label=relationship
+    )
+    nodes_successors_after = await na_adapter.get_successors(
+        node_id=src_id, edge_label=relationship
+    )
+    assert len(nodes_successors_after) == 0
+
+
     # no-op
     await na_adapter.project_entire_graph()
     await na_adapter.drop_graph()
@@ -297,5 +309,5 @@ async def misc_methods():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(pipeline_method())
     asyncio.run(misc_methods())
