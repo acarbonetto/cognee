@@ -12,6 +12,7 @@ graph_id = os.getenv('GRAPH_ID', "")
 
 na_adapter = NeptuneGraphDB(graph_id)
 
+
 def setup():
     # Define nodes data before the main function
     # These nodes were defined using openAI from the following prompt:
@@ -23,8 +24,8 @@ def setup():
     #     stored in Amazon S3.
 
     document = TextDocument(
-        name='text.txt',
-        raw_data_location='git/cognee/examples/database_examples/data_storage/data/text.txt',
+        name='text_test.txt',
+        raw_data_location='git/cognee/examples/database_examples/data_storage/data/text_test.txt',
         external_metadata='{}',
         mime_type='text/plain'
     )
@@ -51,7 +52,7 @@ def setup():
         name='amazon s3',
         description='A storage service provided by Amazon Web Services that allows storing graph data.',
     )
-    
+
     nodes_data = [
         document,
         document_chunk,
@@ -102,7 +103,8 @@ def setup():
 
     return nodes_data, edges_data
 
-async def main():
+
+async def pipeline_method():
     """
     Example script using the neptune analytics with small sample data
 
@@ -223,5 +225,89 @@ async def main():
     else:
         print(f"Delete failed")
 
+
+async def misc_methods():
+    print("------TRUNCATE GRAPH-------")
+    await na_adapter.delete_graph()
+
+    print("------SETUP TEST ENV-------")
+    nodes, edges = setup()
+    await na_adapter.add_nodes(nodes)
+    await na_adapter.add_edges(edges)
+
+    print("------GET GRAPH-------")
+    all_nodes, all_edges = await na_adapter.get_graph_data()
+    print(f"found {len(all_nodes)} nodes and found {len(all_edges)} edges")
+
+    print("------GET DISCONNECTED-------")
+    nodes_disconnected = await na_adapter.get_disconnected_nodes()
+    print(nodes_disconnected)
+    assert len(nodes_disconnected) == 0
+
+    print("------Get Labels (Node)-------")
+    node_labels = await na_adapter.get_node_labels_string()
+    print(node_labels)
+
+    print("------Get Labels (Edge)-------")
+    edge_labels = await na_adapter.get_relationship_labels_string()
+    print(edge_labels)
+
+    print("------Get Filtered Graph-------")
+    filtered_nodes, filtered_edges = await na_adapter.get_filtered_graph_data([{'name': ['text_test.txt']}])
+    print(filtered_nodes, filtered_edges)
+
+    print("------Get Degree one nodes-------")
+    degree_one_nodes = await na_adapter.get_degree_one_nodes("EntityType")
+    print(degree_one_nodes)
+
+    print("------Get Doc sub-graph-------")
+    doc_sub_graph = await na_adapter.get_document_subgraph('test.txt')
+    print(doc_sub_graph)
+
+    print("------Fetch and Remove connections (Predecessors)-------")
+    # Fetch test edge
+    (src_id, dest_id, relationship) = edges[0]
+    nodes_predecessors = await na_adapter.get_predecessors(
+        node_id=dest_id, edge_label=relationship
+    )
+    assert len(nodes_predecessors) > 0
+
+    await na_adapter.remove_connection_to_predecessors_of(
+        node_ids=[src_id], edge_label=relationship
+    )
+    nodes_predecessors_after = await na_adapter.get_predecessors(
+        node_id=dest_id, edge_label=relationship
+    )
+    # Return empty after relationship being deleted.
+    assert len(nodes_predecessors_after) == 0
+
+
+    print("------Fetch and Remove connections (Successors)-------")
+    _, edges_suc = await na_adapter.get_graph_data()
+    (src_id, dest_id, relationship, _) = edges_suc[0]
+
+    nodes_successors = await na_adapter.get_successors(
+        node_id=src_id, edge_label=relationship
+    )
+    assert len(nodes_successors) > 0
+
+    await na_adapter.remove_connection_to_successors_of(
+        node_ids=[dest_id], edge_label=relationship
+    )
+    nodes_successors_after = await na_adapter.get_successors(
+        node_id=src_id, edge_label=relationship
+    )
+    assert len(nodes_successors_after) == 0
+
+
+    # no-op
+    await na_adapter.project_entire_graph()
+    await na_adapter.drop_graph()
+    await na_adapter.graph_exists()
+
+    pass
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(pipeline_method())
+    asyncio.run(misc_methods())
