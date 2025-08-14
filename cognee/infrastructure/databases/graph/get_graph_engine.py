@@ -150,14 +150,12 @@ def create_graph_engine(
 
         if not graph_database_url.startswith(NEPTUNE_ENDPOINT_URL):
             raise ValueError(
-                f"Neptune endpoint must have the format {NEPTUNE_ENDPOINT_URL}<GRAPH_ID>"
+                f"Neptune endpoint must have the format {NEPTUNE_ENDPOINT_URL}<endpoint>"
             )
 
-        graph_identifier = graph_database_url.replace(NEPTUNE_ENDPOINT_URL, "")
+        endpoint = graph_database_url.replace(NEPTUNE_ENDPOINT_URL, "")
 
-        return NeptuneGraphDB(
-            graph_id=graph_identifier,
-        )
+        return NeptuneGraphDB(host=endpoint)
 
     elif graph_database_provider == "neptune_analytics":
         """

@@ -1,22 +1,33 @@
 """Neptune Analytics Hybrid Adapter combining Vector and Graph functionality"""
 
 import asyncio
-import json
-from typing import List, Optional, Any, Dict, Type, Tuple
-from uuid import UUID
+from typing import List, Optional
 
 from cognee.exceptions import InvalidValueError
 from cognee.infrastructure.databases.graph.neptune_driver.adapter import NeptuneGraphDB
 from cognee.infrastructure.databases.vector.vector_db_interface import VectorDBInterface
 from cognee.infrastructure.engine import DataPoint
-from cognee.modules.storage.utils import JSONEncoder
 from cognee.shared.logging_utils import get_logger
-from cognee.infrastructure.databases.vector.embeddings.EmbeddingEngine import EmbeddingEngine
 from cognee.infrastructure.databases.vector.models.PayloadSchema import PayloadSchema
 from cognee.infrastructure.databases.vector.models.ScoredResult import ScoredResult
+from botocore.config import Config
+
+from .exceptions import NeptuneAnalyticsConfigurationError
+from ...graph.neptune_driver.neptune_utils import (
+    validate_graph_id,
+    validate_aws_region,
+    format_neptune_error,
+)
 
 logger = get_logger("NeptuneAnalyticsAdapter")
 
+try:
+    from langchain_aws import NeptuneAnalyticsGraph
+
+    LANGCHAIN_AWS_AVAILABLE = True
+except ImportError:
+    logger.warning("langchain_aws not available. Neptune Analytics functionality will be limited.")
+    LANGCHAIN_AWS_AVAILABLE = False
 
 class IndexSchema(DataPoint):
     """
@@ -52,40 +63,85 @@ class NeptuneAnalyticsAdapter(NeptuneGraphDB, VectorDBInterface):
     _TOPK_UPPER_BOUND = 10
 
     def __init__(
-        self,
-        graph_id: str,
-        embedding_engine: Optional[EmbeddingEngine] = None,
-        region: Optional[str] = None,
-        aws_access_key_id: Optional[str] = None,
-        aws_secret_access_key: Optional[str] = None,
-        aws_session_token: Optional[str] = None,
+            self,
+            graph_id: str,
+            region: Optional[str] = None,
+            aws_access_key_id: Optional[str] = None,
+            aws_secret_access_key: Optional[str] = None,
+            aws_session_token: Optional[str] = None,
     ):
         """
-        Initialize the Neptune Analytics hybrid adapter.
+        Initialize the Neptune Analytics adapter.
 
         Parameters:
         -----------
             - graph_id (str): The Neptune Analytics graph identifier
-            - embedding_engine(Optional[EmbeddingEngine]): The embedding engine instance to translate text to vector.
             - region (Optional[str]): AWS region where the graph is located (default: us-east-1)
             - aws_access_key_id (Optional[str]): AWS access key ID
             - aws_secret_access_key (Optional[str]): AWS secret access key
             - aws_session_token (Optional[str]): AWS session token for temporary credentials
+
+        Raises:
+        -------
+            - NeptuneAnalyticsConfigurationError: If configuration parameters are invalid
         """
-        # Initialize the graph database functionality
-        super().__init__(
-            graph_id=graph_id,
-            region=region,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key,
-            aws_session_token=aws_session_token,
+        # validate import
+        if not LANGCHAIN_AWS_AVAILABLE:
+            raise ImportError(
+                "langchain_aws is not available. Please install it to use Neptune Analytics."
+            )
+
+        # Validate configuration
+        if not validate_graph_id(graph_id):
+            raise NeptuneAnalyticsConfigurationError(message=f'Invalid graph ID: "{graph_id}"')
+
+        if region and not validate_aws_region(region):
+            raise NeptuneAnalyticsConfigurationError(message=f'Invalid AWS region: "{region}"')
+
+        self.graph_id = graph_id
+        self.region = region
+        self.aws_access_key_id = aws_access_key_id
+        self.aws_secret_access_key = aws_secret_access_key
+        self.aws_session_token = aws_session_token
+
+        # Initialize Neptune Analytics client using langchain_aws
+        self._client: NeptuneAnalyticsGraph = self._initialize_client()
+        logger.info(
+            f'Initialized Neptune Analytics adapter for graph: "{graph_id}" in region: "{self.region}"'
         )
 
-        # Add vector-specific attributes
-        self.embedding_engine = embedding_engine
-        logger.info(
-            f'Initialized Neptune Analytics hybrid adapter for graph: "{graph_id}" in region: "{self.region}"'
-        )
+    def _initialize_client(self) -> Optional[NeptuneAnalyticsGraph]:
+        """
+        Initialize the Neptune Analytics client using langchain_aws.
+
+        Returns:
+        --------
+            - Optional[Any]: The Neptune Analytics client or None if not available
+        """
+        try:
+            # Initialize the Neptune Analytics Graph client
+            client_config = {
+                "graph_identifier": self.graph_id,
+                "config": Config(user_agent_appid="Cognee"),
+            }
+            # Add AWS credentials if provided
+            if self.region:
+                client_config["region_name"] = self.region
+            if self.aws_access_key_id:
+                client_config["aws_access_key_id"] = self.aws_access_key_id
+            if self.aws_secret_access_key:
+                client_config["aws_secret_access_key"] = self.aws_secret_access_key
+            if self.aws_session_token:
+                client_config["aws_session_token"] = self.aws_session_token
+
+            client = NeptuneAnalyticsGraph(**client_config)
+            logger.info("Successfully initialized Neptune Analytics client")
+            return client
+
+        except Exception as e:
+            raise NeptuneAnalyticsConfigurationError(
+                message=f"Failed to initialize Neptune Analytics client: {format_neptune_error(e)}"
+            ) from e
 
     # VectorDBInterface methods implementation
 

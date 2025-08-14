@@ -1,115 +1,115 @@
-"""Neptune Analytics Exceptions
+"""Neptune DB Exceptions
 
-This module defines custom exceptions for Neptune Analytics operations.
+This module defines custom exceptions for Neptune DB operations.
 """
 
 from cognee.exceptions import CogneeApiError
 from fastapi import status
 
 
-class NeptuneAnalyticsError(CogneeApiError):
-    """Base exception for Neptune Analytics operations."""
+class NeptuneDBError(CogneeApiError):
+    """Base exception for Neptune DB operations."""
 
     def __init__(
         self,
-        message: str = "Neptune Analytics error.",
-        name: str = "NeptuneAnalyticsError",
+        message: str = "Neptune DB error.",
+        name: str = "NeptuneDBError",
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
     ):
         super().__init__(message, name, status_code)
 
 
-class NeptuneAnalyticsConnectionError(NeptuneAnalyticsError):
-    """Exception raised when connection to Neptune Analytics fails."""
+class NeptuneDBConnectionError(NeptuneDBError):
+    """Exception raised when connection to Neptune DB fails."""
 
     def __init__(
         self,
-        message: str = "Unable to connect to Neptune Analytics. Please check the endpoint and network connectivity.",
-        name: str = "NeptuneAnalyticsConnectionError",
+        message: str = "Unable to connect to Neptune DB. Please check the endpoint and network connectivity.",
+        name: str = "NeptuneDBConnectionError",
         status_code=status.HTTP_404_NOT_FOUND,
     ):
         super().__init__(message, name, status_code)
 
 
-class NeptuneAnalyticsQueryError(NeptuneAnalyticsError):
+class NeptuneDBQueryError(NeptuneDBError):
     """Exception raised when a query execution fails."""
 
     def __init__(
         self,
         message: str = "The query execution failed due to invalid syntax or semantic issues.",
-        name: str = "NeptuneAnalyticsQueryError",
+        name: str = "NeptuneDBQueryError",
         status_code=status.HTTP_400_BAD_REQUEST,
     ):
         super().__init__(message, name, status_code)
 
 
-class NeptuneAnalyticsAuthenticationError(NeptuneAnalyticsError):
-    """Exception raised when authentication with Neptune Analytics fails."""
+class NeptuneDBAuthenticationError(NeptuneDBError):
+    """Exception raised when authentication with Neptune DB fails."""
 
     def __init__(
         self,
-        message: str = "Authentication with Neptune Analytics failed. Please verify your credentials.",
-        name: str = "NeptuneAnalyticsAuthenticationError",
+        message: str = "Authentication with Neptune DB failed. Please verify your credentials.",
+        name: str = "NeptuneDBAuthenticationError",
         status_code=status.HTTP_401_UNAUTHORIZED,
     ):
         super().__init__(message, name, status_code)
 
 
-class NeptuneAnalyticsConfigurationError(NeptuneAnalyticsError):
-    """Exception raised when Neptune Analytics configuration is invalid."""
+class NeptuneDBConfigurationError(NeptuneDBError):
+    """Exception raised when Neptune DB configuration is invalid."""
 
     def __init__(
         self,
-        message: str = "Neptune Analytics configuration is invalid or incomplete. Please review your setup.",
-        name: str = "NeptuneAnalyticsConfigurationError",
+        message: str = "Neptune DB configuration is invalid or incomplete. Please review your setup.",
+        name: str = "NeptuneDBConfigurationError",
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
     ):
         super().__init__(message, name, status_code)
 
 
-class NeptuneAnalyticsTimeoutError(NeptuneAnalyticsError):
-    """Exception raised when a Neptune Analytics operation times out."""
+class NeptuneDBTimeoutError(NeptuneDBError):
+    """Exception raised when a Neptune DB operation times out."""
 
     def __init__(
         self,
-        message: str = "The operation timed out while communicating with Neptune Analytics.",
-        name: str = "NeptuneAnalyticsTimeoutError",
+        message: str = "The operation timed out while communicating with Neptune DB.",
+        name: str = "NeptuneDBTimeoutError",
         status_code=status.HTTP_504_GATEWAY_TIMEOUT,
     ):
         super().__init__(message, name, status_code)
 
 
-class NeptuneAnalyticsThrottlingError(NeptuneAnalyticsError):
-    """Exception raised when requests are throttled by Neptune Analytics."""
+class NeptuneDBThrottlingError(NeptuneDBError):
+    """Exception raised when requests are throttled by Neptune DB."""
 
     def __init__(
         self,
-        message: str = "Request was throttled by Neptune Analytics due to exceeding rate limits.",
-        name: str = "NeptuneAnalyticsThrottlingError",
+        message: str = "Request was throttled by Neptune DB due to exceeding rate limits.",
+        name: str = "NeptuneDBThrottlingError",
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
     ):
         super().__init__(message, name, status_code)
 
 
-class NeptuneAnalyticsResourceNotFoundError(NeptuneAnalyticsError):
-    """Exception raised when a Neptune Analytics resource is not found."""
+class NeptuneDBResourceNotFoundError(NeptuneDBError):
+    """Exception raised when a Neptune DB resource is not found."""
 
     def __init__(
         self,
-        message: str = "The requested Neptune Analytics resource could not be found.",
-        name: str = "NeptuneAnalyticsResourceNotFoundError",
+        message: str = "The requested Neptune DB resource could not be found.",
+        name: str = "NeptuneDBResourceNotFoundError",
         status_code=status.HTTP_404_NOT_FOUND,
     ):
         super().__init__(message, name, status_code)
 
 
-class NeptuneAnalyticsInvalidParameterError(NeptuneAnalyticsError):
-    """Exception raised when invalid parameters are provided to Neptune Analytics."""
+class NeptuneDBInvalidParameterError(NeptuneDBError):
+    """Exception raised when invalid parameters are provided to Neptune DB."""
 
     def __init__(
         self,
-        message: str = "One or more parameters provided to Neptune Analytics are invalid or missing.",
-        name: str = "NeptuneAnalyticsInvalidParameterError",
+        message: str = "One or more parameters provided to Neptune DB are invalid or missing.",
+        name: str = "NeptuneDBInvalidParameterError",
         status_code=status.HTTP_400_BAD_REQUEST,
     ):
         super().__init__(message, name, status_code)

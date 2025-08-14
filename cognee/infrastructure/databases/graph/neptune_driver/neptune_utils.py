@@ -99,58 +99,6 @@ def validate_aws_region(region: str) -> bool:
     return bool(re.match(pattern, region))
 
 
-def build_neptune_config(
-    graph_id: str,
-    region: Optional[str],
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    **kwargs,
-) -> Dict[str, Any]:
-    """
-    Build a configuration dictionary for Neptune Analytics connection.
-
-    Parameters:
-    -----------
-        - graph_id (str): The Neptune Analytics graph identifier
-        - region (Optional[str]): AWS region where the graph is located
-        - aws_access_key_id (Optional[str]): AWS access key ID
-        - aws_secret_access_key (Optional[str]): AWS secret access key
-        - aws_session_token (Optional[str]): AWS session token for temporary credentials
-        - **kwargs: Additional configuration parameters
-
-    Returns:
-    --------
-        - Dict[str, Any]: Configuration dictionary for Neptune Analytics
-
-    Raises:
-    -------
-        - ValueError: If required parameters are invalid
-    """
-    config = {
-        "graph_id": graph_id,
-        "service_name": "neptune-graph",
-    }
-
-    # Add AWS credentials if provided
-    if region:
-        config["region"] = region
-
-    if aws_access_key_id:
-        config["aws_access_key_id"] = aws_access_key_id
-
-    if aws_secret_access_key:
-        config["aws_secret_access_key"] = aws_secret_access_key
-
-    if aws_session_token:
-        config["aws_session_token"] = aws_session_token
-
-    # Add any additional configuration
-    config.update(kwargs)
-
-    return config
-
-
 def get_neptune_endpoint_url(graph_id: str, region: str) -> str:
     """
     Construct the Neptune Analytics endpoint URL for a given graph and region.
