@@ -1,4 +1,4 @@
-"""Neptune Analytics Adapter for Graph Database"""
+"""Neptune Database Adapter for Graph Database"""
 
 import json
 from typing import Optional, Any, List, Dict, Type, Tuple
@@ -16,31 +16,28 @@ from cognee.infrastructure.engine import DataPoint
 from botocore.config import Config
 
 from .exceptions import (
-    NeptuneAnalyticsConfigurationError,
+    NeptuneDBConfigurationError,
 )
 from .neptune_utils import (
-    validate_graph_id,
     validate_aws_region,
-    build_neptune_config,
     format_neptune_error,
 )
 
 logger = get_logger("NeptuneGraphDB")
 
 try:
-    from langchain_aws import NeptuneAnalyticsGraph
-
+    from langchain_aws import NeptuneGraph
     LANGCHAIN_AWS_AVAILABLE = True
 except ImportError:
-    logger.warning("langchain_aws not available. Neptune Analytics functionality will be limited.")
+    logger.warning("langchain_aws not available. Neptune DB functionality will be limited.")
     LANGCHAIN_AWS_AVAILABLE = False
 
-NEPTUNE_ENDPOINT_URL = "neptune-graph://"
+NEPTUNE_ENDPOINT_URL = "neptune-db://"
 
 
 class NeptuneGraphDB(GraphDBInterface):
     """
-    Adapter for interacting with Amazon Neptune Analytics graph store.
+    Adapter for interacting with Amazon Database graph store.
     This class provides methods for querying, adding, deleting nodes and edges using the aws_langchain library.
     """
 
@@ -48,18 +45,20 @@ class NeptuneGraphDB(GraphDBInterface):
 
     def __init__(
         self,
-        graph_id: str,
+        host: str,
+        port: str = 8182,
         region: Optional[str] = None,
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
         aws_session_token: Optional[str] = None,
     ):
         """
-        Initialize the Neptune Analytics adapter.
+        Initialize the Neptune DB adapter.
 
         Parameters:
         -----------
-            - graph_id (str): The Neptune Analytics graph identifier
+            - host (str): The Neptune DB connection host name
+            - port (str): The Neptune DB connection port
             - region (Optional[str]): AWS region where the graph is located (default: us-east-1)
             - aws_access_key_id (Optional[str]): AWS access key ID
             - aws_secret_access_key (Optional[str]): AWS secret access key
@@ -67,54 +66,45 @@ class NeptuneGraphDB(GraphDBInterface):
 
         Raises:
         -------
-            - NeptuneAnalyticsConfigurationError: If configuration parameters are invalid
+            - NeptuneDBConfigurationError: If configuration parameters are invalid
         """
         # validate import
         if not LANGCHAIN_AWS_AVAILABLE:
             raise ImportError(
-                "langchain_aws is not available. Please install it to use Neptune Analytics."
+                "langchain_aws is not available. Please install it to use Neptune."
             )
 
         # Validate configuration
-        if not validate_graph_id(graph_id):
-            raise NeptuneAnalyticsConfigurationError(message=f'Invalid graph ID: "{graph_id}"')
+        if not host:
+            raise NeptuneDBConfigurationError(message=f'You must provide a host to create a Neptune Graph Store')
 
         if region and not validate_aws_region(region):
-            raise NeptuneAnalyticsConfigurationError(message=f'Invalid AWS region: "{region}"')
+            raise NeptuneDBConfigurationError(message=f'Invalid AWS region: "{region}"')
 
-        self.graph_id = graph_id
+        self.host = host
+        self.port = port
         self.region = region
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_session_token = aws_session_token
 
-        # Build configuration
-        self.config = build_neptune_config(
-            graph_id=self.graph_id,
-            region=self.region,
-            aws_access_key_id=self.aws_access_key_id,
-            aws_secret_access_key=self.aws_secret_access_key,
-            aws_session_token=self.aws_session_token,
-        )
-
-        # Initialize Neptune Analytics client using langchain_aws
-        self._client: NeptuneAnalyticsGraph = self._initialize_client()
+        # Initialize NeptuneGraph client using langchain_aws
+        self._client: NeptuneGraph = self._initialize_client()
         logger.info(
-            f'Initialized Neptune Analytics adapter for graph: "{graph_id}" in region: "{self.region}"'
+            f'Initialized Neptune DB adapter for host: "{host}:{port}" in region: "{self.region}"'
         )
 
-    def _initialize_client(self) -> Optional[NeptuneAnalyticsGraph]:
+    def _initialize_client(self) -> Optional[NeptuneGraph]:
         """
-        Initialize the Neptune Analytics client using langchain_aws.
+        Initialize the Neptune DB client using langchain_aws.
 
         Returns:
         --------
-            - Optional[Any]: The Neptune Analytics client or None if not available
+            - Optional[Any]: The Neptune DB client or None if not available
         """
         try:
-            # Initialize the Neptune Analytics Graph client
+            # Initialize the NeptuneGraph client
             client_config = {
-                "graph_identifier": self.graph_id,
                 "config": Config(user_agent_appid="Cognee"),
             }
             # Add AWS credentials if provided
@@ -127,19 +117,19 @@ class NeptuneGraphDB(GraphDBInterface):
             if self.aws_session_token:
                 client_config["aws_session_token"] = self.aws_session_token
 
-            client = NeptuneAnalyticsGraph(**client_config)
-            logger.info("Successfully initialized Neptune Analytics client")
+            client = NeptuneGraph(self.host, self.port, **client_config)
+            logger.info("Successfully initialized Neptune DB client")
             return client
 
         except Exception as e:
-            raise NeptuneAnalyticsConfigurationError(
-                message=f"Failed to initialize Neptune Analytics client: {format_neptune_error(e)}"
+            raise NeptuneDBConfigurationError(
+                message=f"Failed to initialize Neptune DB client: {format_neptune_error(e)}"
             ) from e
 
     @staticmethod
     def _serialize_properties(properties: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Serialize properties for Neptune Analytics storage.
+        Serialize properties for Neptune DB storage.
         Parameters:
         -----------
             - properties (Dict[str, Any]): Properties to serialize.
@@ -164,7 +154,7 @@ class NeptuneGraphDB(GraphDBInterface):
 
     async def query(self, query: str, params: Optional[Dict[str, Any]] = None) -> List[Any]:
         """
-        Execute a query against the Neptune Analytics database and return the results.
+        Execute a query against the Neptune database and return the results.
 
         Parameters:
         -----------
@@ -176,8 +166,8 @@ class NeptuneGraphDB(GraphDBInterface):
             - List[Any]: A list of results from the query execution.
         """
         try:
-            # Execute the query using the Neptune Analytics client
-            # The langchain_aws NeptuneAnalyticsGraph supports openCypher queries
+            # Execute the query using the NeptuneDB client
+            # The langchain_aws NeptuneGraph supports openCypher queries
             if params is None:
                 params = {}
             logger.debug(f"executing na query:\nquery={query}\n")
@@ -193,7 +183,7 @@ class NeptuneGraphDB(GraphDBInterface):
 
         except Exception as e:
             error_msg = format_neptune_error(e)
-            logger.error(f"Neptune Analytics query failed: {error_msg}")
+            logger.error(f"Neptune DB query failed: {error_msg}")
             raise Exception(f"Query execution failed: {error_msg}") from e
 
     async def add_node(self, node: DataPoint) -> None:
@@ -1164,7 +1154,7 @@ class NeptuneGraphDB(GraphDBInterface):
         Drop an existing graph from the database based on its name.
 
         Note: This method is currently a placeholder because GDS (Graph Data Science)
-        projection is not supported in Neptune Analytics.
+        projection is not supported in Neptune.
 
         Parameters:
         -----------
@@ -1179,7 +1169,7 @@ class NeptuneGraphDB(GraphDBInterface):
         Check if a graph with a given name exists in the database.
 
         Note: This method is currently a placeholder because GDS (Graph Data Science)
-        projection is not supported in Neptune Analytics.
+        projection is not supported in Neptune.
 
         Parameters:
         -----------
